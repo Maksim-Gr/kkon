@@ -23,12 +23,15 @@ The tool is intended for developers and operators who want a straightforward way
 
 ## Features
 
-- List running Kafka Connect connectors
+- List running Kafka Connect connectors with live status badges (RUNNING / FAILED / PAUSED)
 - View connector configurations
-- Create connectors from predefined templates
+- Create connectors from predefined templates (RabbitMQ, S3 Sink, JDBC, Debezium Postgres)
 - Delete existing connectors
+- Update connector configuration with a before→after diff view
 - Back up connector configurations to JSON files
-- Interactive CLI prompts (arrow-key navigation)
+- Health-check with per-task error trace preview for failed tasks
+- Interactive CLI prompts (arrow-key navigation, cancel option on every prompt)
+- Connection test after saving credentials
 - Basic auth support
 - Simple configuration-driven setup
 
@@ -91,11 +94,12 @@ gk --help
 ### Connector commands
 
 ```bash
-gk connector list           # List connectors and inspect config
-gk connector create         # Create from predefined template
+gk connector list                      # List connectors with status badges
+gk connector create                    # Create from template (RabbitMQ, S3 Sink, JDBC, Debezium Postgres)
 gk connector create -f connector.json  # Create from JSON file
+gk connector update                    # Update connector config (shows before→after diff)
 gk connector delete                    # Delete a connector (interactive)
-gk connector health-check   # Show connector and task statuses
+gk connector health-check              # Show connector and task statuses with error traces
 ```
 
 ### Task commands
@@ -137,10 +141,9 @@ This allows connector configurations to be versioned, reviewed, or restored late
 
 ## Planned Improvements
 
-- Update existing connector configurations
-- Additional connector templates (S3, JDBC)
-- Improved output formatting and status reporting
 - TLS / mTLS support
+- Update existing connector configurations via CLI
+- Additional output formats (JSON, table)
 
 ---
 
