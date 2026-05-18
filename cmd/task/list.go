@@ -1,7 +1,9 @@
 package task
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 
 	"gokafkaconnect/internal/util"
 
@@ -29,15 +31,45 @@ var listCmd = &cobra.Command{
 			return
 		}
 
+		jsonMode := cmd.Root().PersistentFlags().Lookup("output").Value.String() == "json"
+
 		stop := util.StartSpinner("Fetching tasks...")
 		tasks, err := client.ListConnectorTasks(cmd.Context(), name)
 		connStatus, _ := client.GetConnectorStatus(cmd.Context(), name)
 		stop()
 
 		if err != nil {
-			color.Red("Failed to list tasks for %s: %v\n", name, err)
+			if jsonMode {
+				fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			} else {
+				color.Red("Failed to list tasks for %s: %v\n", name, err)
+			}
 			return
 		}
+
+		if jsonMode {
+			type taskJSON struct {
+				Connector string `json:"connector"`
+				Task      int    `json:"task"`
+				State     string `json:"state,omitempty"`
+			}
+			taskStates := make(map[int]string, len(connStatus.Tasks))
+			for _, ts := range connStatus.Tasks {
+				taskStates[ts.ID] = ts.State
+			}
+			out := make([]taskJSON, 0, len(tasks))
+			for _, t := range tasks {
+				e := taskJSON{Connector: t.Connector, Task: t.Task}
+				if state, ok := taskStates[t.Task]; ok {
+					e.State = state
+				}
+				out = append(out, e)
+			}
+			b, _ := json.MarshalIndent(out, "", "  ")
+			fmt.Println(string(b))
+			return
+		}
+
 		if len(tasks) == 0 {
 			color.Yellow("No tasks found for %s\n", name)
 			return

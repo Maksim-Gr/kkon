@@ -34,6 +34,7 @@ The tool is intended for developers and operators who want a straightforward way
 - Connection test after saving credentials
 - Basic auth support
 - Simple configuration-driven setup
+- JSON output for all read commands (`--output json`)
 
 ---
 
@@ -122,7 +123,8 @@ gk connector backup --dir ./backup
 ### Global flags
 
 ```bash
---dry-run, -d   Preview actions without making any API calls
+--dry-run, -d        Preview actions without making any API calls
+--output, -o <fmt>   Output format: text (default) or json
 ```
 
 ---
@@ -139,11 +141,10 @@ This allows connector configurations to be versioned, reviewed, or restored late
 
 ---
 
-## Planned Improvements
+## Roadmap
 
-- TLS / mTLS support
-- Update existing connector configurations via CLI
-- Additional output formats (JSON, table)
+- Additional connector templates
+- Table output format (`--output table`)
 
 ---
 
@@ -154,13 +155,14 @@ It is currently in pre-release (`v0.x`) while additional connector templates and
 
 ---
 
-## Contributing & Feedback
+## Contributing
 
-`gk` is a personal project created to simplify connector management.
-Bug reports, feedback, and contributions are welcome.
+Contributions, bug reports, and feature requests are welcome.
 
-- Open a GitHub issue
-- Fork the project and submit a pull request
+- Check open issues before submitting a duplicate
+- Fork the repository and open a pull request against `main`
+- Follow the existing code style (`gofmt`, `go vet`)
+- Integration tests require Docker; run `make test`
 
 ---
 

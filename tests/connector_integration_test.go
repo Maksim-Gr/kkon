@@ -123,6 +123,42 @@ func TestConnectorLifecycle(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to delete connector")
 	})
+
+	t.Run("GetConnectorStatus", func(t *testing.T) {
+		target := connectorNames[0]
+		var s c.Status
+		require.Eventually(t, func() bool {
+			var err error
+			s, err = client.GetConnectorStatus(context.Background(), target)
+			return err == nil && s.Connector.State != ""
+		}, 10*time.Second, 500*time.Millisecond, "connector status did not propagate")
+		require.Equal(t, target, s.Name)
+		require.NotEmpty(t, s.Connector.State)
+	})
+
+	t.Run("ListConnectorTasks", func(t *testing.T) {
+		target := connectorNames[0]
+		var tasks []c.TaskRef
+		require.Eventually(t, func() bool {
+			var err error
+			tasks, err = client.ListConnectorTasks(context.Background(), target)
+			return err == nil && len(tasks) > 0
+		}, 10*time.Second, 500*time.Millisecond, "tasks did not appear in time")
+		require.Equal(t, target, tasks[0].Connector)
+	})
+
+	t.Run("RestartConnectorTask", func(t *testing.T) {
+		target := connectorNames[0]
+		tasks, err := client.ListConnectorTasks(context.Background(), target)
+		require.NoError(t, err)
+		require.NotEmpty(t, tasks)
+		err = client.RestartConnectorTask(context.Background(), target, tasks[0].Task)
+		require.NoError(t, err)
+		require.Eventually(t, func() bool {
+			s, err := client.GetConnectorStatus(context.Background(), target)
+			return err == nil && len(s.Tasks) > 0
+		}, 10*time.Second, 500*time.Millisecond, "task did not recover after restart")
+	})
 }
 
 func TestGetConnectorConfig(t *testing.T) {
