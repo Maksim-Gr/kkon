@@ -17,6 +17,9 @@ import (
 // DryRun is the global dry-run flag shared across subcommands.
 var DryRun bool
 
+// OutputFormat is the global output format flag ("text" or "json").
+var OutputFormat string
+
 // RootCmd represents the base command when called without any subcommands.
 var RootCmd = &cobra.Command{
 	Use:   "gk",
@@ -55,6 +58,7 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	RootCmd.PersistentFlags().BoolVarP(&DryRun, "dry-run", "d", false, "Dry run mode")
+	RootCmd.PersistentFlags().StringVarP(&OutputFormat, "output", "o", "text", "Output format: text or json")
 
 	// Bind global flags to subpackages
 	task.BindGlobals(&DryRun)

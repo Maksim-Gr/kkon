@@ -3,6 +3,8 @@ package connector
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+
 	"gokafkaconnect/internal/connector"
 	"gokafkaconnect/internal/util"
 
@@ -29,13 +31,37 @@ var ListCmd = &cobra.Command{
 			client.SetBasicAuth(cfg.KafkaConnect.Username, cfg.KafkaConnect.Password)
 		}
 
+		jsonMode := cmd.Root().PersistentFlags().Lookup("output").Value.String() == "json"
+
 		stop := util.StartSpinner("Fetching connectors...")
 		connectors, err := client.ListConnectors(cmd.Context())
 		statuses, _ := client.ListConnectorStatuses(cmd.Context())
 		stop()
 
 		if err != nil {
-			color.Red("Failed to list connector: %v\n", err)
+			if jsonMode {
+				fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			} else {
+				color.Red("Failed to list connector: %v\n", err)
+			}
+			return
+		}
+
+		if jsonMode {
+			type entry struct {
+				Name  string `json:"name"`
+				State string `json:"state,omitempty"`
+			}
+			out := make([]entry, 0, len(connectors))
+			for _, name := range connectors {
+				e := entry{Name: name}
+				if s, ok := statuses[name]; ok {
+					e.State = s.Connector.State
+				}
+				out = append(out, e)
+			}
+			b, _ := json.MarshalIndent(out, "", "  ")
+			fmt.Println(string(b))
 			return
 		}
 

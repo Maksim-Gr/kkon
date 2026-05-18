@@ -22,6 +22,8 @@ type TaskStatus struct {
 }
 
 // ListConnectorTasks lists tasks for a connector.
+// GET /connectors/{name}/tasks returns [{id:{connector,task}, config:{}}],
+// so we unwrap the nested id before returning flat TaskRefs.
 func (c *Client) ListConnectorTasks(ctx context.Context, connectorName string) ([]TaskRef, error) {
 	path := fmt.Sprintf("/connectors/%s/tasks", connectorName)
 
@@ -33,9 +35,15 @@ func (c *Client) ListConnectorTasks(ctx context.Context, connectorName string) (
 		return nil, fmt.Errorf("failed to list tasks for %s: %s", connectorName, string(body))
 	}
 
-	var tasks []TaskRef
-	if err := json.Unmarshal(body, &tasks); err != nil {
+	var raw []struct {
+		ID TaskRef `json:"id"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
 		return nil, err
+	}
+	tasks := make([]TaskRef, len(raw))
+	for i, r := range raw {
+		tasks[i] = r.ID
 	}
 	return tasks, nil
 }

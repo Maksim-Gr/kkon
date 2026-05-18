@@ -1,7 +1,9 @@
 package connector
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"gokafkaconnect/internal/connector"
@@ -27,11 +29,23 @@ var HealthCheckCmd = &cobra.Command{
 			client.SetBasicAuth(cfg.KafkaConnect.Username, cfg.KafkaConnect.Password)
 		}
 
+		jsonMode := cmd.Root().PersistentFlags().Lookup("output").Value.String() == "json"
+
 		stop := util.StartSpinner("Fetching connector statuses...")
 		connectorStatuses, err := client.ListConnectorStatuses(cmd.Context())
 		stop()
 		if err != nil {
-			color.Red("Failed to list connector statuses: %v\n", err)
+			if jsonMode {
+				fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			} else {
+				color.Red("Failed to list connector statuses: %v\n", err)
+			}
+			return
+		}
+
+		if jsonMode {
+			b, _ := json.MarshalIndent(connectorStatuses, "", "  ")
+			fmt.Println(string(b))
 			return
 		}
 

@@ -2,7 +2,9 @@
 package task
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 
 	"gokafkaconnect/internal/util"
 
@@ -36,9 +38,21 @@ var getCmd = &cobra.Command{
 			return
 		}
 
+		jsonMode := cmd.Root().PersistentFlags().Lookup("output").Value.String() == "json"
+
 		status, err := client.GetConnectorTaskStatus(cmd.Context(), name, id)
 		if err != nil {
-			color.Red("Failed to get status for %s: %v\n", util.FormatTaskRef(name, id), err)
+			if jsonMode {
+				fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			} else {
+				color.Red("Failed to get status for %s: %v\n", util.FormatTaskRef(name, id), err)
+			}
+			return
+		}
+
+		if jsonMode {
+			b, _ := json.MarshalIndent(status, "", "  ")
+			fmt.Println(string(b))
 			return
 		}
 

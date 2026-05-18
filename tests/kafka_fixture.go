@@ -14,6 +14,13 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
+const (
+	confluentVersion  = "7.5.0"
+	zookeeperImage    = "confluentinc/cp-zookeeper:" + confluentVersion
+	kafkaImage        = "confluentinc/cp-kafka:" + confluentVersion
+	kafkaConnectImage = "confluentinc/cp-kafka-connect:" + confluentVersion
+)
+
 // WaitForKafkaConnectStartUp polls the /connector-plugins endpoint to ensure Kafka Connect is fully initialized.
 func WaitForKafkaConnectStartUp(t *testing.T, baseURL string, timeout time.Duration) {
 	t.Helper()
@@ -22,7 +29,7 @@ func WaitForKafkaConnectStartUp(t *testing.T, baseURL string, timeout time.Durat
 		Class string `json:"class"`
 	}
 
-	isReady := func() bool {
+	require.Eventually(t, func() bool {
 		resp, err := http.Get(fmt.Sprintf("%s/connector-plugins", baseURL))
 		if err != nil || resp.StatusCode != http.StatusOK {
 			return false
@@ -30,16 +37,7 @@ func WaitForKafkaConnectStartUp(t *testing.T, baseURL string, timeout time.Durat
 		defer resp.Body.Close() //nolint:errcheck
 		var plugins []Plugin
 		return json.NewDecoder(resp.Body).Decode(&plugins) == nil && len(plugins) > 0
-	}
-
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		if isReady() {
-			return
-		}
-		time.Sleep(2 * time.Second)
-	}
-	t.Fatalf("Kafka Connect container is not ready within %s timeout", timeout)
+	}, timeout, 2*time.Second, "Kafka Connect did not become ready within %s", timeout)
 }
 
 // KafkaConnectTestFixture holds a running Kafka Connect container and its URL.
@@ -59,7 +57,7 @@ func KafkaConnectFixture(t *testing.T) *KafkaConnectTestFixture {
 
 	// Zookeeper Setup
 	zooReq := testcontainers.ContainerRequest{
-		Image:        "confluentinc/cp-zookeeper:7.2.0",
+		Image:        zookeeperImage,
 		ExposedPorts: []string{"2181/tcp"},
 		Networks:     []string{nw.Name},
 		Env: map[string]string{
@@ -78,7 +76,7 @@ func KafkaConnectFixture(t *testing.T) *KafkaConnectTestFixture {
 
 	// Kafka Broker Setup
 	kafkaReq := testcontainers.ContainerRequest{
-		Image:        "confluentinc/cp-kafka:7.2.0",
+		Image:        kafkaImage,
 		ExposedPorts: []string{"9092/tcp"},
 		Networks:     []string{nw.Name},
 		Env: map[string]string{
@@ -101,7 +99,7 @@ func KafkaConnectFixture(t *testing.T) *KafkaConnectTestFixture {
 
 	// Kafka Connect Setup
 	connectReq := testcontainers.ContainerRequest{
-		Image:        "confluentinc/cp-kafka-connect:7.5.0",
+		Image:        kafkaConnectImage,
 		ExposedPorts: []string{"8083/tcp"},
 		Networks:     []string{nw.Name},
 		Env: map[string]string{
