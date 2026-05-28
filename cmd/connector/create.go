@@ -31,9 +31,9 @@ var CreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a connector from predefined configuration",
 	Long:  `Browse predefined connector.`,
-	Run: func(_ *cobra.Command, _ []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		if connectorJSONPath != "" {
-			submitConnectorFromFile(connectorJSONPath)
+			submitConnectorFromFile(cmd.Context(), connectorJSONPath)
 			return
 		}
 
@@ -51,15 +51,15 @@ var CreateCmd = &cobra.Command{
 		color.Green("\n You selected: %s\n", selected)
 		switch selected {
 		case "RabbitMQ Connector":
-			configureConnector("RabbitMQ Connector", template.GetRabbitMQConnectorTemplate(), template.RabbitMQRequiredFields(), "rabbitmq.password")
+			configureConnector(cmd.Context(), "RabbitMQ Connector", template.GetRabbitMQConnectorTemplate(), template.RabbitMQRequiredFields(), "rabbitmq.password")
 		case "Debezium PostgreSQL CDC":
-			configureConnector("Debezium PostgreSQL CDC", template.GetDebeziumPostgresConnectorTemplate(), template.DebeziumPostgresRequiredFields(), "database.password")
+			configureConnector(cmd.Context(), "Debezium PostgreSQL CDC", template.GetDebeziumPostgresConnectorTemplate(), template.DebeziumPostgresRequiredFields(), "database.password")
 		case "JDBC Source Connector":
-			configureConnector("JDBC Source Connector", template.GetJDBCSourceConnectorTemplate(), template.JDBCSourceRequiredFields(), "connection.password")
+			configureConnector(cmd.Context(), "JDBC Source Connector", template.GetJDBCSourceConnectorTemplate(), template.JDBCSourceRequiredFields(), "connection.password")
 		case "JDBC Sink Connector":
-			configureConnector("JDBC Sink Connector", template.GetJDBCSinkConnectorTemplate(), template.JDBCSinkRequiredFields(), "connection.password")
+			configureConnector(cmd.Context(), "JDBC Sink Connector", template.GetJDBCSinkConnectorTemplate(), template.JDBCSinkRequiredFields(), "connection.password")
 		case "S3 Sink Connector":
-			configureConnector("S3 Sink Connector", template.GetS3SinkConnectorTemplate(), template.S3SinkRequiredFields(), "")
+			configureConnector(cmd.Context(), "S3 Sink Connector", template.GetS3SinkConnectorTemplate(), template.S3SinkRequiredFields(), "")
 		}
 	},
 }
@@ -68,7 +68,7 @@ func init() {
 	CreateCmd.Flags().StringVarP(&connectorJSONPath, "file", "f", "", "Path to connector JSON config file")
 }
 
-func submitConnectorFromFile(path string) {
+func submitConnectorFromFile(ctx context.Context, path string) {
 	b, err := os.ReadFile(path) //nolint:gosec
 	if err != nil {
 		color.Red("Failed to read file %s: %v\n", path, err)
@@ -93,14 +93,14 @@ func submitConnectorFromFile(path string) {
 	}
 
 	color.Green("\n Submitting connector from file: %s ...\n", path)
-	if _, err := client.SubmitConnector(context.Background(), string(b)); err != nil {
+	if _, err := client.SubmitConnector(ctx, string(b)); err != nil {
 		color.Red("Failed to submit connector: %v\n", err)
 		return
 	}
 	color.Green("Connector submitted successfully!\n")
 }
 
-func configureConnector(name string, connectorConfig map[string]string, required []string, passwordField string) {
+func configureConnector(ctx context.Context, name string, connectorConfig map[string]string, required []string, passwordField string) {
 	color.Yellow("\n  Starting configuration for %s...\n", name)
 
 	questions := make([]*survey.Question, 0, len(required))
@@ -229,7 +229,7 @@ func configureConnector(name string, connectorConfig map[string]string, required
 			client.SetBasicAuth(cfg.KafkaConnect.Username, cfg.KafkaConnect.Password)
 		}
 
-		_, err = client.SubmitConnector(context.Background(), finalConfig)
+		_, err = client.SubmitConnector(ctx, finalConfig)
 		if err != nil {
 			color.Red("Failed to submit connector: %v\n", err)
 		} else {
