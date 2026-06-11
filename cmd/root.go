@@ -40,7 +40,10 @@ var RootCmd = &cobra.Command{
 		if err != nil || cfg.KafkaConnect.URL == "" {
 			color.Yellow("No Kafka Connect URL configured.")
 			color.Cyan("Running initial configuration...\n")
-			config.ConfigureCmd.Run(cmd, args)
+			if err := config.ConfigureCmd.RunE(cmd, args); err != nil {
+				color.Red("Configuration failed: %v\n", err)
+				os.Exit(1)
+			}
 		}
 	},
 }

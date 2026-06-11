@@ -142,6 +142,11 @@ var UpdateCmd = &cobra.Command{
 			return
 		}
 
+		if !validateConfigOrConfirm(cmd.Context(), client, connectorConfig) {
+			color.Yellow("Canceled\n")
+			return
+		}
+
 		if err := client.UpdateConnectorConfig(cmd.Context(), selected, connectorConfig); err != nil {
 			color.Red("Failed to update connector: %v\n", err)
 			return

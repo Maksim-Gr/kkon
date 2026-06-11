@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"gokafkaconnect/internal/connector"
 	"gokafkaconnect/internal/util"
@@ -13,7 +14,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var listConfigName string
+var (
+	listConfigName string
+	listState      string
+)
 
 // ListCmd represent command for retrieving connectors from API.
 var ListCmd = &cobra.Command{
@@ -45,6 +49,10 @@ var ListCmd = &cobra.Command{
 				color.Red("Failed to list connector: %v\n", err)
 			}
 			return
+		}
+
+		if listState != "" {
+			connectors = filterByState(connectors, statuses, listState)
 		}
 
 		if jsonMode {
@@ -121,4 +129,17 @@ var ListCmd = &cobra.Command{
 
 func init() {
 	ListCmd.Flags().StringVarP(&listConfigName, "config", "c", "", "Print config for the named connector (skips interactive prompt)")
+	ListCmd.Flags().StringVar(&listState, "state", "", "Only show connectors in this state (e.g. RUNNING, FAILED, PAUSED)")
+}
+
+// filterByState returns the names whose connector state matches want (case-insensitive).
+// Connectors without a known status are excluded.
+func filterByState(names []string, statuses connector.ConnectorsStatusResponse, want string) []string {
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		if s, ok := statuses[name]; ok && strings.EqualFold(s.Connector.State, want) {
+			out = append(out, name)
+		}
+	}
+	return out
 }
