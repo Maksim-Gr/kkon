@@ -2,6 +2,24 @@
 
 ---
 
+## v1.0.1 — 2026-06-12
+
+### Added
+- Connector lifecycle commands: `gk connector pause`, `resume`, and `restart`
+  (with `--include-tasks` and `--only-failed` flags on restart)
+- `gk version` command (and `--version`) reporting the build version, commit, and date
+- `--state` filter on `gk connector list` and `gk connector health-check`
+- Pre-submit config validation for `create` and `update`, surfacing
+  field-level errors before the config is sent
+
+### Changed
+- `gk config set` now returns errors through Cobra instead of calling `os.Exit`
+
+### Fixed
+- Added unit tests for the Kafka Connect HTTP client and config round-trip
+
+---
+
 ## Unreleased
 
 Initial development of **kc**.

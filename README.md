@@ -150,8 +150,8 @@ This allows connector configurations to be versioned, reviewed, or restored late
 
 ## Project Status
 
-`gk` is functional and actively used for connector lifecycle management.
-It is currently in pre-release (`v0.x`) while additional connector templates and API features are being added. Breaking changes may occur before `v1.0.0`.
+`gk` is stable and actively used for connector lifecycle management.
+Releases follow semantic versioning (`v1.x`); new connector templates and API features continue to be added in backward-compatible minor releases.
 
 ---
 
