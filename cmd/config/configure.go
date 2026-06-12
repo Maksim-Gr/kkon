@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"gokafkaconnect/internal/connector"
@@ -22,7 +21,7 @@ var ConfigureCmd = &cobra.Command{
 	Use:   "set",
 	Short: "Configure Kafka Connect REST API",
 	Long:  `Configure Kafka Connect REST API URL and authentication.`,
-	Run: func(_ *cobra.Command, _ []string) {
+	RunE: func(_ *cobra.Command, _ []string) error {
 
 		if dryRun {
 			color.Cyan("Dry run mode")
@@ -32,8 +31,7 @@ var ConfigureCmd = &cobra.Command{
 
 		configPath, err := util.GetConfigPath()
 		if err != nil {
-			color.Red("Failed to determine config path: %v", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to determine config path: %w", err)
 		}
 
 		currentURL := ""
@@ -74,10 +72,9 @@ var ConfigureCmd = &cobra.Command{
 		if err != nil {
 			if util.IsSurveyInterrupt(err) {
 				color.Yellow("Canceled\n")
-				return
+				return nil
 			}
-			color.Red("Failed to read URL: %v", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to read URL: %w", err)
 		}
 
 		if inputURL == "" {
@@ -96,10 +93,9 @@ var ConfigureCmd = &cobra.Command{
 		if err := survey.AskOne(userPrompt, &inputUser); err != nil {
 			if util.IsSurveyInterrupt(err) {
 				color.Yellow("Canceled\n")
-				return
+				return nil
 			}
-			color.Red("Failed to read username: %v", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to read username: %w", err)
 		}
 
 		// Ask for password only when a username is being set for the first time
@@ -116,10 +112,9 @@ var ConfigureCmd = &cobra.Command{
 			if err := survey.AskOne(passPrompt, &inputPass); err != nil {
 				if util.IsSurveyInterrupt(err) {
 					color.Yellow("Canceled\n")
-					return
+					return nil
 				}
-				color.Red("Failed to read password: %v", err)
-				os.Exit(1)
+				return fmt.Errorf("failed to read password: %w", err)
 			}
 		}
 
@@ -139,12 +134,11 @@ var ConfigureCmd = &cobra.Command{
 			} else {
 				color.Cyan("Authentication: disabled")
 			}
-			return
+			return nil
 		}
 
 		if err := util.SaveConfig(cfg, configPath); err != nil {
-			color.Red("Failed to save config file: %v", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to save config file: %w", err)
 		}
 
 		color.Green("Configuration saved successfully!")
@@ -174,6 +168,8 @@ var ConfigureCmd = &cobra.Command{
 				color.Green("Connection OK — %d connector(s) found\n", len(list))
 			}
 		}
+
+		return nil
 	},
 }
 

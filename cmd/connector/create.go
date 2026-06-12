@@ -92,6 +92,11 @@ func submitConnectorFromFile(ctx context.Context, path string) {
 		client.SetBasicAuth(cfg.KafkaConnect.Username, cfg.KafkaConnect.Password)
 	}
 
+	if configMap := configMapFromFile(b); !validateConfigOrConfirm(ctx, client, configMap) {
+		color.Yellow("Submission cancelled.\n")
+		return
+	}
+
 	color.Green("\n Submitting connector from file: %s ...\n", path)
 	if _, err := client.SubmitConnector(ctx, string(b)); err != nil {
 		color.Red("Failed to submit connector: %v\n", err)
@@ -227,6 +232,11 @@ func configureConnector(ctx context.Context, name string, connectorConfig map[st
 		client := connector.NewClient(cfg.KafkaConnect.URL)
 		if cfg.KafkaConnect.Username != "" {
 			client.SetBasicAuth(cfg.KafkaConnect.Username, cfg.KafkaConnect.Password)
+		}
+
+		if !validateConfigOrConfirm(ctx, client, connectorConfig) {
+			color.Yellow("\n Submission cancelled. Exiting.\n")
+			return
 		}
 
 		_, err = client.SubmitConnector(ctx, finalConfig)

@@ -150,6 +150,40 @@ func (c *Client) GetConnectorConfigJSON(ctx context.Context, name string) (map[s
 	return cfg, nil
 }
 
+// ConfigValidationResponse is a minimal view of the connector config validation result.
+type ConfigValidationResponse struct {
+	Name       string `json:"name"`
+	ErrorCount int    `json:"error_count"`
+	Configs    []struct {
+		Value struct {
+			Name   string   `json:"name"`
+			Errors []string `json:"errors"`
+		} `json:"value"`
+	} `json:"configs"`
+}
+
+// ValidateConnectorConfig validates a connector config against its plugin and
+// returns per-field errors. connectorClass must match the config's connector.class.
+func (c *Client) ValidateConnectorConfig(ctx context.Context, connectorClass string, cfg map[string]string) (ConfigValidationResponse, error) {
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return ConfigValidationResponse{}, err
+	}
+	path := fmt.Sprintf("/connector-plugins/%s/config/validate", connectorClass)
+	body, status, err := c.doRequest(ctx, http.MethodPut, path, b)
+	if err != nil {
+		return ConfigValidationResponse{}, err
+	}
+	if !isSuccess(status) {
+		return ConfigValidationResponse{}, fmt.Errorf("failed to validate config: %s", string(body))
+	}
+	var v ConfigValidationResponse
+	if err := json.Unmarshal(body, &v); err != nil {
+		return ConfigValidationResponse{}, err
+	}
+	return v, nil
+}
+
 // BackupConnectorConfig writes connector configs to a timestamped JSON file in outputDir.
 func BackupConnectorConfig(
 	ctx context.Context,

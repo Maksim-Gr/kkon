@@ -13,6 +13,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var healthState string
+
 // HealthCheckCmd shows connector and task statuses.
 var HealthCheckCmd = &cobra.Command{
 	Use:   "health-check",
@@ -41,6 +43,14 @@ var HealthCheckCmd = &cobra.Command{
 				color.Red("Failed to list connector statuses: %v\n", err)
 			}
 			return
+		}
+
+		if healthState != "" {
+			for name, status := range connectorStatuses {
+				if !strings.EqualFold(status.Connector.State, healthState) {
+					delete(connectorStatuses, name)
+				}
+			}
 		}
 
 		if jsonMode {
@@ -81,4 +91,8 @@ var HealthCheckCmd = &cobra.Command{
 			}
 		}
 	},
+}
+
+func init() {
+	HealthCheckCmd.Flags().StringVar(&healthState, "state", "", "Only show connectors in this state (e.g. RUNNING, FAILED, PAUSED)")
 }
