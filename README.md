@@ -107,8 +107,14 @@ kkon connector create                    # Create from template (RabbitMQ, S3 Si
 kkon connector create -f connector.json  # Create from JSON file
 kkon connector update                    # Update connector config (shows before→after diff)
 kkon connector delete                    # Delete a connector (interactive)
+kkon connector pause [name]              # Pause a connector and its tasks
+kkon connector resume [name]             # Resume a paused connector
+kkon connector restart [name]            # Restart a connector (and its tasks)
+kkon connector restart [name] --only-failed     # Restart only FAILED connector and tasks
 kkon connector health-check              # Show connector and task statuses with error traces
 ```
+
+> `pause`, `resume`, and `restart` take an optional connector name — omit it to pick interactively. `restart` restarts tasks by default (`--include-tasks`, on by default); use `--only-failed` to restart only failed connectors/tasks.
 
 ### Task commands
 
