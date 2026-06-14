@@ -1,6 +1,6 @@
 # Documentation
 
-This folder contains user and developer documentation for the `gk` CLI.
+This folder contains user and developer documentation for the `kkon` CLI.
 
 ## Contents
 
@@ -11,9 +11,9 @@ This folder contains user and developer documentation for the `gk` CLI.
 - [Troubleshooting](./troubleshooting.md)
 - [Development](./development.md)
 
-## What is `gk`?
+## What is `kkon`?
 
-`gk` is a command-line tool for managing Kafka Connect connectors through the Kafka Connect REST API.
+`kkon` is a command-line tool for managing Kafka Connect connectors through the Kafka Connect REST API.
 
 Typical tasks:
 - list connectors

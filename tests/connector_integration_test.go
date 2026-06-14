@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	c "gokafkaconnect/internal/connector"
+	c "github.com/Maksim-Gr/kkon/internal/connector"
 
 	"github.com/stretchr/testify/require"
 )

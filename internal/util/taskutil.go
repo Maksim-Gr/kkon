@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"gokafkaconnect/internal/connector"
+	"github.com/Maksim-Gr/kkon/internal/connector"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"

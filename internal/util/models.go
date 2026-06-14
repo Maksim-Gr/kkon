@@ -1,6 +1,6 @@
 package util
 
-// RestAPIConfig is the top-level structure of the gokafkaconnect config file.
+// RestAPIConfig is the top-level structure of the kkon config file.
 type RestAPIConfig struct {
 	KafkaConnect KafkaConnectConfig `yaml:"kafkaConnect"`
 }

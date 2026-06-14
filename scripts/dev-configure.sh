@@ -1,12 +1,12 @@
 #!/usr/bin/env sh
-# Writes the local dev config for gk and seeds sample connectors.
-# Run this after `make dev-up` instead of going through interactive `gk configure`.
+# Writes the local dev config for kkon and seeds sample connectors.
+# Run this after `make dev-up` instead of going through interactive `kkon configure`.
 
 BASE_URL="http://localhost:8083"
-CONFIG_DIR="$HOME/.config/gokafkaconnect"
+CONFIG_DIR="$HOME/.config/kkon"
 CONFIG_FILE="$CONFIG_DIR/config.yaml"
 
-# ── Write gk config ──────────────────────────────────────────────────────────
+# ── Write kkon config ──────────────────────────────────────────────────────────
 mkdir -p "$CONFIG_DIR"
 cat > "$CONFIG_FILE" <<'EOF'
 kafkaConnect:
@@ -95,4 +95,4 @@ create_connector "dev-broken" '{
   }
 }'
 
-echo "Done. Run: gk connector list"
+echo "Done. Run: kkon connector list"

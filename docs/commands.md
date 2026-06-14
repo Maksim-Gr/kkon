@@ -1,11 +1,11 @@
 # Commands
 
-`gk` uses a small set of subcommands to manage Kafka Connect.
+`kkon` uses a small set of subcommands to manage Kafka Connect.
 
 ## Root
 
 ```bash
-gk [flags] <command> [subcommand] [flags]
+kkon [flags] <command> [subcommand] [flags]
 ```
 
 Global flags:
@@ -15,7 +15,7 @@ Global flags:
 ## config
 
 ```bash
-gk config <subcommand>
+kkon config <subcommand>
 ```
 
 Subcommands:
@@ -24,21 +24,21 @@ Subcommands:
 - `show-config` Print the current config file.
 
 Flags:
-- `gk config backup --dir, -o` Directory to save backup files (default: `./backup`).
+- `kkon config backup --dir, -o` Directory to save backup files (default: `./backup`).
 
 Examples:
 ```bash
-gk config configure
+kkon config configure
 
-gk config backup --dir ./backups
+kkon config backup --dir ./backups
 
-gk config show-config
+kkon config show-config
 ```
 
 ## connector
 
 ```bash
-gk connector <subcommand>
+kkon connector <subcommand>
 ```
 
 Subcommands:
@@ -48,8 +48,8 @@ Subcommands:
 - `health-check` Print connector status summary.
 
 Flags:
-- `gk connector create --file, -f` Path to connector JSON config file.
-- `gk connector delete --connector, -c` Connector name (required).
+- `kkon connector create --file, -f` Path to connector JSON config file.
+- `kkon connector delete --connector, -c` Connector name (required).
 
 Notes:
 - `create` without `--file` opens an interactive prompt with predefined templates.
@@ -57,21 +57,21 @@ Notes:
 
 Examples:
 ```bash
-gk connector create
+kkon connector create
 
-gk connector create --file ./my-connector.json
+kkon connector create --file ./my-connector.json
 
-gk connector delete --connector my-connector
+kkon connector delete --connector my-connector
 
-gk connector list
+kkon connector list
 
-gk connector health-check
+kkon connector health-check
 ```
 
 ## task
 
 ```bash
-gk task <subcommand> [flags]
+kkon task <subcommand> [flags]
 ```
 
 Subcommands:
@@ -85,9 +85,9 @@ Flags:
 
 Examples:
 ```bash
-gk task list --connector my-connector
+kkon task list --connector my-connector
 
-gk task get --connector my-connector --id 0
+kkon task get --connector my-connector --id 0
 
-gk task restart --connector my-connector --id 1
+kkon task restart --connector my-connector --id 1
 ```

@@ -2,8 +2,8 @@ package connector
 
 import (
 	"fmt"
-	"gokafkaconnect/internal/connector"
-	"gokafkaconnect/internal/util"
+	"github.com/Maksim-Gr/kkon/internal/connector"
+	"github.com/Maksim-Gr/kkon/internal/util"
 	"sort"
 
 	"github.com/AlecAivazis/survey/v2"

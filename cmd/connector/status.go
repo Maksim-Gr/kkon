@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"gokafkaconnect/internal/connector"
-	"gokafkaconnect/internal/util"
+	"github.com/Maksim-Gr/kkon/internal/connector"
+	"github.com/Maksim-Gr/kkon/internal/util"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"

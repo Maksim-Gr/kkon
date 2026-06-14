@@ -3,7 +3,7 @@ package connector
 import (
 	"fmt"
 
-	"gokafkaconnect/internal/util"
+	"github.com/Maksim-Gr/kkon/internal/util"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"

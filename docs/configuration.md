@@ -1,17 +1,17 @@
 # Configuration
 
-`gk` needs to know how to reach your Kafka Connect REST API and (optionally) basic auth credentials.
+`kkon` needs to know how to reach your Kafka Connect REST API and (optionally) basic auth credentials.
 
 ## Where configuration lives
 
-`gk` stores its config at:
+`kkon` stores its config at:
 
-- `~/.gokafkaconnect/config.yaml`
+- `~/.kkon/config.yaml`
 
 You can create or update it via the interactive command:
 
 ```bash
-./gk config configure
+./kkon config configure
 ```
 
 ## Config format
@@ -27,12 +27,12 @@ kafkaConnect:
 
 Notes:
 - `username`/`password` are optional. Leave them empty for no auth.
-- If you enter a URL without a scheme, `gk` assumes `http://`.
+- If you enter a URL without a scheme, `kkon` assumes `http://`.
 
 ## View current config
 
 ```bash
-./gk config show-config
+./kkon config show-config
 ```
 
 ## Dry run
@@ -40,5 +40,5 @@ Notes:
 Some commands support `--dry-run` (global flag) to show what would happen without making changes:
 
 ```bash
-./gk --dry-run config configure
+./kkon --dry-run config configure
 ```

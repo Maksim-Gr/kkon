@@ -2,14 +2,14 @@
 package cmd
 
 import (
-	"gokafkaconnect/cmd/config"
-	"gokafkaconnect/cmd/connector"
-	"gokafkaconnect/cmd/task"
+	"github.com/Maksim-Gr/kkon/cmd/config"
+	"github.com/Maksim-Gr/kkon/cmd/connector"
+	"github.com/Maksim-Gr/kkon/cmd/task"
 	"os"
 
 	"github.com/fatih/color"
 
-	"gokafkaconnect/internal/util"
+	"github.com/Maksim-Gr/kkon/internal/util"
 
 	"github.com/spf13/cobra"
 )
@@ -22,9 +22,9 @@ var OutputFormat string
 
 // RootCmd represents the base command when called without any subcommands.
 var RootCmd = &cobra.Command{
-	Use:   "gk",
+	Use:   "kkon",
 	Short: "CLI to manage Kafka connector fast and easy!",
-	Long: `gk - cli tool for working with Kafka Connect.
+	Long: `kkon - cli tool for working with Kafka Connect.
 	Manage, create, and list predefined connector in seconds!`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// Pass dryRun flag to subpackages

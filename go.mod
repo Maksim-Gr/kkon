@@ -1,4 +1,4 @@
-module gokafkaconnect
+module github.com/Maksim-Gr/kkon
 
 go 1.26
 

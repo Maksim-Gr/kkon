@@ -1,4 +1,4 @@
-// Package config provides CLI commands for managing gokafkaconnect configuration.
+// Package config provides CLI commands for managing kkon configuration.
 package config
 
 import (
