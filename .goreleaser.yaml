@@ -1,6 +1,6 @@
 version: 2
 
-project_name: gk
+project_name: kkon
 
 before:
   hooks:
@@ -8,8 +8,8 @@ before:
     - go mod verify
 
 builds:
-  - id: gk
-    binary: gk
+  - id: kkon
+    binary: kkon
     main: ./main.go
     env:
       - CGO_ENABLED=0
@@ -27,7 +27,7 @@ builds:
       - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
 
 archives:
-  - id: gk
+  - id: kkon
     formats:
       - tar.gz
     format_overrides:
@@ -72,6 +72,6 @@ changelog:
 release:
   github:
     owner: Maksim-Gr
-    name: gokafkaconnect
+    name: kkon
   draft: false
   prerelease: auto

@@ -1,20 +1,21 @@
-# gk CLI
+# kkon CLI
 
-[![Go](https://github.com/Maksim-Gr/gokafkaconnect/actions/workflows/go.yml/badge.svg)](https://github.com/Maksim-Gr/gokafkaconnect/actions/workflows/go.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/Maksim-Gr/gokafkaconnect)](https://goreportcard.com/report/github.com/Maksim-Gr/gokafkaconnect)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/Maksim-Gr/gokafkaconnect)](https://github.com/Maksim-Gr/gokafkaconnect/blob/main/go.mod)
-[![Latest Release](https://img.shields.io/github/v/release/Maksim-Gr/gokafkaconnect?include_prereleases)](https://github.com/Maksim-Gr/gokafkaconnect/releases)
+[![Go](https://github.com/Maksim-Gr/kkon/actions/workflows/go.yml/badge.svg)](https://github.com/Maksim-Gr/kkon/actions/workflows/go.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Maksim-Gr/kkon)](https://goreportcard.com/report/github.com/Maksim-Gr/kkon)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/Maksim-Gr/kkon)](https://github.com/Maksim-Gr/kkon/blob/main/go.mod)
+[![Latest Release](https://img.shields.io/github/v/release/Maksim-Gr/kkon?include_prereleases)](https://github.com/Maksim-Gr/kkon/releases)
+[![Go Reference](https://pkg.go.dev/badge/github.com/Maksim-Gr/kkon.svg)](https://pkg.go.dev/github.com/Maksim-Gr/kkon)
 
 ---
 
 A command-line interface for managing Kafka Connect connectors via the Kafka Connect REST API.
-`gk` focuses on providing a fast, simple, and interactive CLI experience for day-to-day connector operations.
+`kkon` focuses on providing a fast, simple, and interactive CLI experience for day-to-day connector operations.
 
 ---
 
 ## Overview
 
-`gk` is a Go-based CLI tool designed to interact with Kafka Connect clusters.
+`kkon` is a Go-based CLI tool designed to interact with Kafka Connect clusters.
 It creates a lightweight client for the Kafka Connect REST API and exposes common connector management operations through an intuitive command-line interface.
 
 The tool is intended for developers and operators who want a straightforward way to list, inspect, back up, create, and delete connectors without manually interacting with REST endpoints.
@@ -42,38 +43,44 @@ The tool is intended for developers and operators who want a straightforward way
 
 ### Download a release (recommended)
 
-Download the latest binary for your platform from the [Releases](https://github.com/Maksim-Gr/gokafkaconnect/releases) page, then make it executable:
+Download the latest binary for your platform from the [Releases](https://github.com/Maksim-Gr/kkon/releases) page, then make it executable:
 
 ```bash
-chmod +x gk
-mv gk /usr/local/bin/gk
+chmod +x kkon
+mv kkon /usr/local/bin/kkon
+```
+
+### Install with Go
+
+```bash
+go install github.com/Maksim-Gr/kkon@latest
 ```
 
 ### Build from source
 
 ```bash
-git clone https://github.com/Maksim-Gr/gokafkaconnect.git
-cd gokafkaconnect
-go build -o gk
+git clone https://github.com/Maksim-Gr/kkon.git
+cd kkon
+go build -o kkon
 ```
 
 ---
 
 ## Configuration
 
-On first run `gk` will prompt you to configure a Kafka Connect endpoint.
+On first run `kkon` will prompt you to configure a Kafka Connect endpoint.
 You can also run configuration manually at any time:
 
 ```bash
-gk config set
+kkon config set
 ```
 
 Config file location:
 
 | Platform | Path |
 |----------|------|
-| Linux / macOS | `~/.config/gokafkaconnect/config.yaml` |
-| Windows | `%USERPROFILE%\.config\gokafkaconnect\config.yaml` |
+| Linux / macOS | `~/.config/kkon/config.yaml` |
+| Windows | `%USERPROFILE%\.config\kkon\config.yaml` |
 
 Example config:
 
@@ -89,35 +96,35 @@ kafkaConnect:
 ## Usage
 
 ```bash
-gk --help
+kkon --help
 ```
 
 ### Connector commands
 
 ```bash
-gk connector list                      # List connectors with status badges
-gk connector create                    # Create from template (RabbitMQ, S3 Sink, JDBC, Debezium Postgres)
-gk connector create -f connector.json  # Create from JSON file
-gk connector update                    # Update connector config (shows before→after diff)
-gk connector delete                    # Delete a connector (interactive)
-gk connector health-check              # Show connector and task statuses with error traces
+kkon connector list                      # List connectors with status badges
+kkon connector create                    # Create from template (RabbitMQ, S3 Sink, JDBC, Debezium Postgres)
+kkon connector create -f connector.json  # Create from JSON file
+kkon connector update                    # Update connector config (shows before→after diff)
+kkon connector delete                    # Delete a connector (interactive)
+kkon connector health-check              # Show connector and task statuses with error traces
 ```
 
 ### Task commands
 
 ```bash
-gk task list -c <name>      # List tasks for a connector
-gk task get  -c <name>      # Get task status
-gk task restart -c <name>   # Restart a task
+kkon task list -c <name>      # List tasks for a connector
+kkon task get  -c <name>      # Get task status
+kkon task restart -c <name>   # Restart a task
 ```
 
 ### Config commands
 
 ```bash
-gk config set               # Set Kafka Connect URL and credentials
-gk config show              # Display current configuration
-gk connector backup         # Backup all connector configs to JSON
-gk connector backup --dir ./backup
+kkon config set               # Set Kafka Connect URL and credentials
+kkon config show              # Display current configuration
+kkon connector backup         # Backup all connector configs to JSON
+kkon connector backup --dir ./backup
 ```
 
 ### Global flags
@@ -134,7 +141,7 @@ gk connector backup --dir ./backup
 The `backup` command retrieves all connector configurations from the Kafka Connect cluster and stores them in a timestamped JSON file:
 
 ```bash
-gk connector backup --dir ./backup
+kkon connector backup --dir ./backup
 ```
 
 This allows connector configurations to be versioned, reviewed, or restored later.
@@ -150,7 +157,7 @@ This allows connector configurations to be versioned, reviewed, or restored late
 
 ## Project Status
 
-`gk` is stable and actively used for connector lifecycle management.
+`kkon` is stable and actively used for connector lifecycle management.
 Releases follow semantic versioning (`v1.x`); new connector templates and API features continue to be added in backward-compatible minor releases.
 
 ---

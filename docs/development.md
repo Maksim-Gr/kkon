@@ -3,13 +3,13 @@
 ## Build
 
 ```bash
-go build -o gk .
+go build -o kkon .
 ```
 
 ## Run locally
 
 ```bash
-./gk --help
+./kkon --help
 ```
 
 ## Tests

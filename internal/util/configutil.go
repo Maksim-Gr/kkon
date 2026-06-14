@@ -32,13 +32,13 @@ func ToPrettyJSON(v interface{}) (string, error) {
 	return string(b), nil
 }
 
-// GetConfigPath returns the path to the gokafkaconnect config file.
+// GetConfigPath returns the path to the kkon config file.
 func GetConfigPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".config", "gokafkaconnect", "config.yaml"), nil
+	return filepath.Join(home, ".config", "kkon", "config.yaml"), nil
 }
 
 // ValidateURL returns an error if input is not a valid http/https URL.

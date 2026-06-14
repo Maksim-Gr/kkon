@@ -1,7 +1,7 @@
 package connector
 
 import (
-	"gokafkaconnect/internal/util"
+	"github.com/Maksim-Gr/kkon/internal/util"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"

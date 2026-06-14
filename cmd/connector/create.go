@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 
-	"gokafkaconnect/internal/connector"
-	template "gokafkaconnect/internal/connector/kafka/templates"
-	"gokafkaconnect/internal/util"
+	"github.com/Maksim-Gr/kkon/internal/connector"
+	template "github.com/Maksim-Gr/kkon/internal/connector/kafka/templates"
+	"github.com/Maksim-Gr/kkon/internal/util"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
