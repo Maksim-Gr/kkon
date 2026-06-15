@@ -1,9 +1,6 @@
 package connector
 
 import (
-	"fmt"
-	"sort"
-
 	"github.com/Maksim-Gr/kkon/internal/connector"
 	"github.com/Maksim-Gr/kkon/internal/util"
 
@@ -47,111 +44,8 @@ var UpdateCmd = &cobra.Command{
 			return
 		}
 
-		connectorConfig, err := client.GetConnectorConfigJSON(cmd.Context(), selected)
-		if err != nil {
-			color.Red("Failed to get connector config: %v\n", err)
-			return
+		if err := editConnectorConfig(cmd.Context(), client, selected); err != nil {
+			color.Red("%v\n", err)
 		}
-
-		// Snapshot the original config for diff display later.
-		original := make(map[string]string, len(connectorConfig))
-		for k, v := range connectorConfig {
-			original[k] = v
-		}
-
-		for {
-			pretty, err := util.ToPrettyJSON(connectorConfig)
-			if err != nil {
-				color.Red("Failed to format config: %v\n", err)
-				return
-			}
-			color.Cyan("\n Current config for %s:\n", selected)
-			fmt.Println(pretty)
-
-			fields := make([]string, 0, len(connectorConfig))
-			for k := range connectorConfig {
-				fields = append(fields, k)
-			}
-			sort.Strings(fields)
-
-			var fieldToChange string
-			if err := survey.AskOne(&survey.Select{
-				Message: "Which field do you want to change?",
-				Options: fields,
-			}, &fieldToChange); err != nil {
-				color.Yellow("Canceled\n")
-				return
-			}
-
-			var newValue string
-			if err := survey.AskOne(&survey.Input{
-				Message: fmt.Sprintf("New value for %s (current: %v):", fieldToChange, connectorConfig[fieldToChange]),
-			}, &newValue); err != nil {
-				color.Yellow("Canceled\n")
-				return
-			}
-			connectorConfig[fieldToChange] = newValue
-
-			var more bool
-			if err := survey.AskOne(&survey.Confirm{
-				Message: "Change another field?",
-				Default: false,
-			}, &more); err != nil {
-				color.Yellow("Canceled\n")
-				return
-			}
-			if !more {
-				break
-			}
-		}
-
-		// Compute and display changed fields.
-		var changedKeys []string
-		for k, newV := range connectorConfig {
-			if oldV, exists := original[k]; exists && oldV != newV {
-				changedKeys = append(changedKeys, k)
-			}
-		}
-
-		if len(changedKeys) == 0 {
-			color.Yellow("No changes made\n")
-			return
-		}
-
-		sort.Strings(changedKeys)
-		maxKeyLen := 0
-		for _, k := range changedKeys {
-			if len(k) > maxKeyLen {
-				maxKeyLen = len(k)
-			}
-		}
-		color.Cyan("\nChanges:")
-		for _, k := range changedKeys {
-			fmt.Printf("  %-*s  %s  →  %s\n", maxKeyLen, k, original[k], connectorConfig[k])
-		}
-
-		var confirm bool
-		if err := survey.AskOne(&survey.Confirm{
-			Message: "Apply this config to " + selected + "?",
-			Default: true,
-		}, &confirm); err != nil {
-			color.Yellow("Canceled\n")
-			return
-		}
-		if !confirm {
-			color.Yellow("Canceled\n")
-			return
-		}
-
-		if !validateConfigOrConfirm(cmd.Context(), client, connectorConfig) {
-			color.Yellow("Canceled\n")
-			return
-		}
-
-		if err := client.UpdateConnectorConfig(cmd.Context(), selected, connectorConfig); err != nil {
-			color.Red("Failed to update connector: %v\n", err)
-			return
-		}
-		color.Green("Connector %s updated successfully\n", selected)
 	},
 }

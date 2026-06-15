@@ -98,11 +98,27 @@ var ListCmd = &cobra.Command{
 		if selected == "" {
 			const cancelOpt = "← Cancel"
 			prompt := &survey.Select{
-				Message: "Show connector config:",
+				Message: "Select connector:",
 				Options: append(connectors, cancelOpt),
 			}
 			if err := survey.AskOne(prompt, &selected); err != nil || selected == cancelOpt {
 				color.Yellow("Canceled\n")
+				return
+			}
+
+			const showOpt, editOpt, cancelAction = "Show config", "Edit config", "← Cancel"
+			var action string
+			if err := survey.AskOne(&survey.Select{
+				Message: "Action for " + selected + ":",
+				Options: []string{showOpt, editOpt, cancelAction},
+			}, &action); err != nil || action == cancelAction {
+				color.Yellow("Canceled\n")
+				return
+			}
+			if action == editOpt {
+				if err := editConnectorConfig(cmd.Context(), client, selected); err != nil {
+					color.Red("%v\n", err)
+				}
 				return
 			}
 		}
