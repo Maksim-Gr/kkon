@@ -3,7 +3,7 @@
 ## Initial setup and verify
 
 ```bash
-kkon config configure
+kkon config set
 
 kkon connector list
 ```
@@ -53,7 +53,7 @@ kkon task restart --connector my-connector --id 0
 ## Backup all connector configs
 
 ```bash
-kkon config backup --dir ./backups
+kkon connector backup --dir ./backups
 ```
 
 ## Dry run a change

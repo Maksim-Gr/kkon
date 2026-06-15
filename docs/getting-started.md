@@ -24,7 +24,7 @@ go build -o kkon .
 `kkon` needs a Kafka Connect URL (and optional basic auth). You can configure it explicitly:
 
 ```bash
-./kkon config configure
+./kkon config set
 ```
 
 If no configuration exists, `kkon` will prompt you automatically on the next run.

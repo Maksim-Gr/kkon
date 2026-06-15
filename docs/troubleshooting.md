@@ -5,17 +5,17 @@
 Run:
 
 ```bash
-kkon config configure
+kkon config set
 ```
 
-This creates `~/.kkon/config.yaml`.
+This creates `~/.config/kkon/config.yaml`.
 
 ## "Failed to load config"
 
 Your config file may be missing or invalid YAML. Re-run configuration:
 
 ```bash
-kkon config configure
+kkon config set
 ```
 
 ## Connection errors (connection refused, timeout)
@@ -26,7 +26,7 @@ kkon config configure
 
 ## Authentication failures (401/403)
 
-- Confirm the username/password in `~/.kkon/config.yaml`.
+- Confirm the username/password in `~/.config/kkon/config.yaml`.
 - If your cluster does not require auth, leave `username` and `password` empty.
 
 ## "No connectors found"
@@ -46,5 +46,5 @@ kkon connector delete --connector my-connector
 Ensure the backup output directory is writable:
 
 ```bash
-kkon config backup --dir ./backups
+kkon connector backup --dir ./backups
 ```

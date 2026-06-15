@@ -201,14 +201,15 @@ func BackupConnectorConfig(
 		dumpConfig[name] = cfg
 	}
 
-	if err := os.MkdirAll(outputDir, 0o750); err != nil {
+	if err := os.MkdirAll(outputDir, 0o700); err != nil {
 		return "", fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	timestamp := time.Now().Format("20060102_150405")
 	outputFile := filepath.Join(outputDir, fmt.Sprintf("config_%s.json", timestamp))
 
-	file, err := os.Create(outputFile) //nolint:gosec
+	// Backups can contain connector secrets, so restrict to owner read/write.
+	file, err := os.OpenFile(outputFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec
 	if err != nil {
 		return "", fmt.Errorf("failed to create file: %w", err)
 	}

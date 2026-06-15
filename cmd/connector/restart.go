@@ -13,6 +13,7 @@ import (
 var (
 	restartIncludeTasks bool
 	restartOnlyFailed   bool
+	restartYes          bool
 )
 
 // RestartCmd restarts a connector.
@@ -38,14 +39,16 @@ var RestartCmd = &cobra.Command{
 			return
 		}
 
-		var confirm bool
-		confirmPrompt := &survey.Confirm{
-			Message: fmt.Sprintf("Restart connector %s?", name),
-			Default: true,
-		}
-		if err := survey.AskOne(confirmPrompt, &confirm); err != nil || !confirm {
-			color.Yellow("Canceled\n")
-			return
+		if !restartYes {
+			var confirm bool
+			confirmPrompt := &survey.Confirm{
+				Message: fmt.Sprintf("Restart connector %s?", name),
+				Default: true,
+			}
+			if err := survey.AskOne(confirmPrompt, &confirm); err != nil || !confirm {
+				color.Yellow("Canceled\n")
+				return
+			}
 		}
 
 		if err := client.RestartConnector(cmd.Context(), name, restartIncludeTasks, restartOnlyFailed); err != nil {
@@ -59,4 +62,5 @@ var RestartCmd = &cobra.Command{
 func init() {
 	RestartCmd.Flags().BoolVar(&restartIncludeTasks, "include-tasks", true, "Also restart the connector's tasks")
 	RestartCmd.Flags().BoolVar(&restartOnlyFailed, "only-failed", false, "Restart only FAILED connector and tasks")
+	RestartCmd.Flags().BoolVarP(&restartYes, "yes", "y", false, "Skip the confirmation prompt")
 }

@@ -6,12 +6,12 @@
 
 `kkon` stores its config at:
 
-- `~/.kkon/config.yaml`
+- `~/.config/kkon/config.yaml`
 
 You can create or update it via the interactive command:
 
 ```bash
-./kkon config configure
+./kkon config set
 ```
 
 ## Config format
@@ -32,7 +32,7 @@ Notes:
 ## View current config
 
 ```bash
-./kkon config show-config
+./kkon config show
 ```
 
 ## Dry run
@@ -40,5 +40,5 @@ Notes:
 Some commands support `--dry-run` (global flag) to show what would happen without making changes:
 
 ```bash
-./kkon --dry-run config configure
+./kkon --dry-run config set
 ```

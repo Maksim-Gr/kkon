@@ -3,6 +3,7 @@ package connector
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -52,7 +53,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body []byte
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("could not reach Kafka Connect at %s (is it running? verify the URL/credentials with `kkon config show`): %w", c.baseURL, err)
 	}
 	defer resp.Body.Close() //nolint:errcheck
 

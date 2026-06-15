@@ -1,7 +1,14 @@
-// Package main is the entry point for the gk CLI tool.
+// Package main is the entry point for the kkon CLI tool.
 package main
 
-import "github.com/Maksim-Gr/kkon/cmd"
+import (
+	"context"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/Maksim-Gr/kkon/cmd"
+)
 
 // Build metadata, injected via -ldflags at release time (see .goreleaser.yaml).
 var (
@@ -12,5 +19,9 @@ var (
 
 func main() {
 	cmd.SetVersionInfo(version, commit, date)
-	cmd.Execute()
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	cmd.Execute(ctx)
 }
