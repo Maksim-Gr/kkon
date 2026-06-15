@@ -106,7 +106,8 @@ kkon connector list                      # List connectors with status badges
 kkon connector create                    # Create from template (RabbitMQ, S3 Sink, JDBC, Debezium Postgres)
 kkon connector create -f connector.json  # Create from JSON file
 kkon connector update                    # Update connector config (shows before→after diff)
-kkon connector delete                    # Delete a connector (interactive)
+kkon connector delete [name]             # Delete a connector (interactive, or pass a name)
+kkon connector delete my-conn --yes      # Delete without the confirmation prompt (scriptable)
 kkon connector pause [name]              # Pause a connector and its tasks
 kkon connector resume [name]             # Resume a paused connector
 kkon connector restart [name]            # Restart a connector (and its tasks)
@@ -114,7 +115,7 @@ kkon connector restart [name] --only-failed     # Restart only FAILED connector 
 kkon connector health-check              # Show connector and task statuses with error traces
 ```
 
-> `pause`, `resume`, and `restart` take an optional connector name — omit it to pick interactively. `restart` restarts tasks by default (`--include-tasks`, on by default); use `--only-failed` to restart only failed connectors/tasks.
+> `delete`, `pause`, `resume`, and `restart` take an optional connector name — omit it to pick interactively. `delete` and `restart` accept `--yes/-y` to skip the confirmation prompt (for scripting). `restart` restarts tasks by default (`--include-tasks`); use `--only-failed` to restart only failed connectors/tasks.
 
 ### Task commands
 

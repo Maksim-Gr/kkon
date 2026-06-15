@@ -32,3 +32,6 @@ go.work.sum
 # env file
 .env
 .idea
+
+# connector config backups (may contain secrets)
+backup/

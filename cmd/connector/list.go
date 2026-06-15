@@ -22,7 +22,7 @@ var (
 // ListCmd represent command for retrieving connectors from API.
 var ListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List running connector",
+	Short: "List running connectors",
 	Long:  `List current running connector`,
 	Run: func(cmd *cobra.Command, _ []string) {
 		cfg, err := util.LoadConfig()

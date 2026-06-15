@@ -84,7 +84,7 @@ var HealthCheckCmd = &cobra.Command{
 						}
 						if len(lines) > 3 {
 							color.Yellow("  %-*s      ...\n", maxLen, "")
-							fmt.Printf("  %-*s      To see full trace run: gk task get --connector %s --id %d\n", maxLen, "", name, t.ID)
+							fmt.Printf("  %-*s      To see full trace run: kkon task get --connector %s --id %d\n", maxLen, "", name, t.ID)
 						}
 					}
 				}

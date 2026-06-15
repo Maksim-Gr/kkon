@@ -12,7 +12,7 @@ var (
 	dateStr    = "unknown"
 )
 
-// SetVersionInfo records build metadata and enables `gk --version`.
+// SetVersionInfo records build metadata and enables `kkon --version`.
 // It is called from main before Execute.
 func SetVersionInfo(version, commit, date string) {
 	versionStr, commitStr, dateStr = version, commit, date
@@ -24,7 +24,7 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
 	Run: func(_ *cobra.Command, _ []string) {
-		fmt.Printf("gk %s\n", versionStr)
+		fmt.Printf("kkon %s\n", versionStr)
 		fmt.Printf("commit: %s\n", commitStr)
 		fmt.Printf("built:  %s\n", dateStr)
 	},

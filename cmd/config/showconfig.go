@@ -13,7 +13,7 @@ import (
 // ShowConfigCmd represents the showConfig command.
 var ShowConfigCmd = &cobra.Command{
 	Use:   "show",
-	Short: "Display API endpoint",
+	Short: "Show current configuration",
 	Long:  `Display Kafka Connect API endpoint.`,
 	Run: func(_ *cobra.Command, _ []string) {
 		cfg, err := util.LoadConfig()

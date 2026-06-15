@@ -2,10 +2,12 @@
 package cmd
 
 import (
+	"context"
+	"os"
+
 	"github.com/Maksim-Gr/kkon/cmd/config"
 	"github.com/Maksim-Gr/kkon/cmd/connector"
 	"github.com/Maksim-Gr/kkon/cmd/task"
-	"os"
 
 	"github.com/fatih/color"
 
@@ -36,6 +38,12 @@ var RootCmd = &cobra.Command{
 			return
 		}
 
+		// Commands that don't talk to Kafka Connect must work without any config.
+		switch cmd.Name() {
+		case "version", "help", "completion":
+			return
+		}
+
 		cfg, err := util.LoadConfig()
 		if err != nil || cfg.KafkaConnect.URL == "" {
 			color.Yellow("No Kafka Connect URL configured.")
@@ -50,8 +58,8 @@ var RootCmd = &cobra.Command{
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the RootCmd.
-func Execute() {
-	err := RootCmd.Execute()
+func Execute(ctx context.Context) {
+	err := RootCmd.ExecuteContext(ctx)
 	if err != nil {
 		os.Exit(1)
 	}

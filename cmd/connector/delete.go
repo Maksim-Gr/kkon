@@ -1,7 +1,6 @@
 package connector
 
 import (
-	"github.com/Maksim-Gr/kkon/internal/connector"
 	"github.com/Maksim-Gr/kkon/internal/util"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -9,58 +8,53 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var deleteYes bool
+
 // DeleteCmd represents the delete command.
 var DeleteCmd = &cobra.Command{
-	Use:   "delete",
-	Short: "delete connector",
-	Long:  `Delete connector from Kafka Connect API`,
-	Run: func(cmd *cobra.Command, _ []string) {
-		cfg, err := util.LoadConfig()
-		if err != nil {
-			color.Red("Failed to load config file: %v\n", err)
-			return
-		}
-		client := connector.NewClient(cfg.KafkaConnect.URL)
-		if cfg.KafkaConnect.Username != "" {
-			client.SetBasicAuth(cfg.KafkaConnect.Username, cfg.KafkaConnect.Password)
-		}
-
-		connectors, err := client.ListConnectors(cmd.Context())
-		if err != nil {
-			color.Red("Failed to list connectors: %v\n", err)
-			return
-		}
-		if len(connectors) == 0 {
-			color.Yellow("No connectors found\n")
+	Use:   "delete [name]",
+	Short: "Delete a connector",
+	Long:  "Delete a connector from Kafka Connect (select interactively or pass the connector name).",
+	Args:  cobra.MaximumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		client, ok := util.NewKafkaConnectClient()
+		if !ok {
 			return
 		}
 
-		var selected string
-		if err := survey.AskOne(&survey.Select{
-			Message: "Select connector to delete:",
-			Options: connectors,
-		}, &selected); err != nil {
-			color.Yellow("Canceled\n")
+		name, ok := util.ResolveConnectorName(cmd.Context(), client, argOrEmpty(args))
+		if !ok {
 			return
 		}
 
-		var confirmed bool
-		if err := survey.AskOne(&survey.Confirm{
-			Message: "Delete " + selected + "?",
-			Default: false,
-		}, &confirmed); err != nil {
-			color.Yellow("Canceled\n")
-			return
-		}
-		if !confirmed {
-			color.Yellow("Canceled\n")
+		if isDryRun(cmd) {
+			color.Yellow("[dry-run] Would delete connector %s\n", name)
 			return
 		}
 
-		if err := client.DeleteConnector(cmd.Context(), selected); err != nil {
+		if !deleteYes {
+			var confirmed bool
+			if err := survey.AskOne(&survey.Confirm{
+				Message: "Delete " + name + "?",
+				Default: false,
+			}, &confirmed); err != nil {
+				color.Yellow("Canceled\n")
+				return
+			}
+			if !confirmed {
+				color.Yellow("Canceled\n")
+				return
+			}
+		}
+
+		if err := client.DeleteConnector(cmd.Context(), name); err != nil {
 			color.Red("Failed to delete connector: %v\n", err)
-		} else {
-			color.Green("Connector %s deleted\n", selected)
+			return
 		}
+		color.Green("Connector %s deleted\n", name)
 	},
+}
+
+func init() {
+	DeleteCmd.Flags().BoolVarP(&deleteYes, "yes", "y", false, "Skip the confirmation prompt")
 }
