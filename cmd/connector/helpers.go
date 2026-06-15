@@ -3,8 +3,12 @@ package connector
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"sort"
+	"time"
 
 	"github.com/Maksim-Gr/kkon/internal/connector"
+	"github.com/Maksim-Gr/kkon/internal/util"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
@@ -76,4 +80,187 @@ func validateConfigOrConfirm(ctx context.Context, client *connector.Client, cfg 
 		return false
 	}
 	return proceed
+}
+
+// editConnectorConfig fetches the named connector's live config, lets the user
+// edit fields interactively, shows a diff, validates, and applies the change.
+// Applying restarts the connector, so it then verifies the connector comes back
+// RUNNING and offers to revert to the original config if it does not. Benign
+// exits (cancel, no changes) return nil so callers don't print a second error.
+func editConnectorConfig(ctx context.Context, client *connector.Client, selected string) error {
+	connectorConfig, err := client.GetConnectorConfigJSON(ctx, selected)
+	if err != nil {
+		return fmt.Errorf("failed to get connector config: %w", err)
+	}
+
+	// Snapshot the original config for diff display and potential revert.
+	original := make(map[string]string, len(connectorConfig))
+	for k, v := range connectorConfig {
+		original[k] = v
+	}
+
+	for {
+		pretty, err := util.ToPrettyJSON(connectorConfig)
+		if err != nil {
+			return fmt.Errorf("failed to format config: %w", err)
+		}
+		color.Cyan("\n Current config for %s:\n", selected)
+		fmt.Println(pretty)
+
+		fields := make([]string, 0, len(connectorConfig))
+		for k := range connectorConfig {
+			fields = append(fields, k)
+		}
+		sort.Strings(fields)
+
+		var fieldToChange string
+		if err := survey.AskOne(&survey.Select{
+			Message: "Which field do you want to change?",
+			Options: fields,
+		}, &fieldToChange); err != nil {
+			color.Yellow("Canceled\n")
+			return nil
+		}
+
+		var newValue string
+		if err := survey.AskOne(&survey.Input{
+			Message: fmt.Sprintf("New value for %s (current: %v):", fieldToChange, connectorConfig[fieldToChange]),
+		}, &newValue); err != nil {
+			color.Yellow("Canceled\n")
+			return nil
+		}
+		connectorConfig[fieldToChange] = newValue
+
+		var more bool
+		if err := survey.AskOne(&survey.Confirm{
+			Message: "Change another field?",
+			Default: false,
+		}, &more); err != nil {
+			color.Yellow("Canceled\n")
+			return nil
+		}
+		if !more {
+			break
+		}
+	}
+
+	// Compute and display changed fields.
+	var changedKeys []string
+	for k, newV := range connectorConfig {
+		if oldV, exists := original[k]; exists && oldV != newV {
+			changedKeys = append(changedKeys, k)
+		}
+	}
+
+	if len(changedKeys) == 0 {
+		color.Yellow("No changes made\n")
+		return nil
+	}
+
+	sort.Strings(changedKeys)
+	maxKeyLen := 0
+	for _, k := range changedKeys {
+		if len(k) > maxKeyLen {
+			maxKeyLen = len(k)
+		}
+	}
+	color.Cyan("\nChanges:")
+	for _, k := range changedKeys {
+		fmt.Printf("  %-*s  %s  →  %s\n", maxKeyLen, k, original[k], connectorConfig[k])
+	}
+
+	var confirm bool
+	if err := survey.AskOne(&survey.Confirm{
+		Message: "Apply this config to " + selected + "?",
+		Default: true,
+	}, &confirm); err != nil || !confirm {
+		color.Yellow("Canceled\n")
+		return nil
+	}
+
+	if !validateConfigOrConfirm(ctx, client, connectorConfig) {
+		color.Yellow("Canceled\n")
+		return nil
+	}
+
+	if err := client.UpdateConnectorConfig(ctx, selected, connectorConfig); err != nil {
+		return fmt.Errorf("failed to update connector: %w", err)
+	}
+	color.Green("Connector %s updated; restarting with new config...\n", selected)
+
+	verifyConnectorOrRevert(ctx, client, selected, original)
+	return nil
+}
+
+// verifyConnectorOrRevert polls the connector's status after a config change.
+// Updating a config restarts the connector and its tasks, so this waits for it
+// to settle and reports whether it is RUNNING. If it is not healthy, it offers
+// to revert to the previous config.
+func verifyConnectorOrRevert(ctx context.Context, client *connector.Client, name string, original map[string]string) {
+	status, healthy := waitForConnectorRunning(ctx, client, name, 5, 2*time.Second)
+
+	if healthy {
+		color.Green("Connector %s is up and running: %s\n", name, util.ColorState(status.Connector.State))
+		return
+	}
+
+	if status.Name == "" {
+		color.Yellow("Could not verify connector status\n")
+		return
+	}
+
+	color.Red("Connector %s did not come back RUNNING.\n", name)
+	color.Red("  connector: %s\n", util.ColorState(status.Connector.State))
+	for _, t := range status.Tasks {
+		fmt.Printf("  task %d: %s\n", t.ID, util.ColorState(t.State))
+	}
+
+	var revert bool
+	if err := survey.AskOne(&survey.Confirm{
+		Message: fmt.Sprintf("Connector %s is not RUNNING. Revert to previous config?", name),
+		Default: true,
+	}, &revert); err != nil || !revert {
+		color.Yellow("Keeping new config in place\n")
+		return
+	}
+
+	if err := client.UpdateConnectorConfig(ctx, name, original); err != nil {
+		color.Red("Failed to revert connector: %v\n", err)
+		return
+	}
+	color.Green("Reverted %s to previous config\n", name)
+}
+
+// waitForConnectorRunning polls the connector's status up to attempts times,
+// sleeping delay between tries, and returns once it is healthy or attempts are
+// exhausted. The returned bool reports whether it became healthy; the returned
+// status is the last one observed (zero-valued, with empty Name, if every poll
+// errored).
+func waitForConnectorRunning(ctx context.Context, client *connector.Client, name string, attempts int, delay time.Duration) (connector.Status, bool) {
+	var status connector.Status
+	for i := 0; i < attempts; i++ {
+		time.Sleep(delay)
+		s, err := client.GetConnectorStatus(ctx, name)
+		if err != nil {
+			continue
+		}
+		status = s
+		if connectorHealthy(status) {
+			return status, true
+		}
+	}
+	return status, false
+}
+
+// connectorHealthy reports whether the connector and all its tasks are RUNNING.
+func connectorHealthy(status connector.Status) bool {
+	if status.Connector.State != "RUNNING" {
+		return false
+	}
+	for _, t := range status.Tasks {
+		if t.State != "RUNNING" {
+			return false
+		}
+	}
+	return true
 }
