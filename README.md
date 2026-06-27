@@ -1,4 +1,8 @@
-# kkon CLI
+<div align="center">
+  <img src="./assets/banner.svg" alt="kkon" width="70%">
+</div>
+
+<div align="center">
 
 [![Go](https://github.com/Maksim-Gr/kkon/actions/workflows/go.yml/badge.svg)](https://github.com/Maksim-Gr/kkon/actions/workflows/go.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/Maksim-Gr/kkon)](https://goreportcard.com/report/github.com/Maksim-Gr/kkon)
@@ -6,10 +10,16 @@
 [![Latest Release](https://img.shields.io/github/v/release/Maksim-Gr/kkon?include_prereleases)](https://github.com/Maksim-Gr/kkon/releases)
 [![Go Reference](https://pkg.go.dev/badge/github.com/Maksim-Gr/kkon.svg)](https://pkg.go.dev/github.com/Maksim-Gr/kkon)
 
+</div>
+
 ---
 
 A command-line interface for managing Kafka Connect connectors via the Kafka Connect REST API.
 `kkon` focuses on providing a fast, simple, and interactive CLI experience for day-to-day connector operations.
+
+<div align="center">
+  <img src="./assets/demo.gif" alt="kkon demo — health-check and connector list" width="90%">
+</div>
 
 ---
 
