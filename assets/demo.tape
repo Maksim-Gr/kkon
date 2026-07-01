@@ -1,6 +1,6 @@
-# kkon demo — render with:  vhs assets/demo.tape
+# kkon demo — render with:
+#   docker run --rm -v "$PWD:/vhs" ghcr.io/charmbracelet/vhs assets/demo.tape
 # Requires a Kafka Connect cluster at localhost:8083 (see docker-compose.yml)
-# and kkon configured to point at it.
 
 Output assets/demo.gif
 
@@ -12,25 +12,43 @@ Set Padding 28
 Set Theme "Catppuccin Mocha"
 Set TypingSpeed 55ms
 
-# Put the local kkon binary on PATH so the prompt reads cleanly.
+# Set up: clean prompt, put binary on PATH, configure kkon to reach Kafka Connect on the host.
 Hide
-Type 'export PS1="$ " && export PATH="$PWD:$PATH" && clear'
+Type 'export PS1="$ " && cp kkon-linux kkon && export PATH="$PWD:$PATH"'
+Enter
+Type 'mkdir -p ~/.config/kkon && printf "kafkaConnect:\n  url: http://host.docker.internal:8083\n  username: \"\"\n  password: \"\"\n" > ~/.config/kkon/config.yaml'
+Enter
+Type 'clear'
 Enter
 Show
 
 Sleep 800ms
-Type "kkon connector health-check"
-Sleep 600ms
-Enter
-Sleep 4s
 
+# ── List connectors with status badges ────────────────────────────────────────
 Type "kkon connector list"
+Sleep 400ms
+Enter
+Sleep 3s
+
+# Select dev-heartbeat (first item) → Show status
+Enter
 Sleep 600ms
 Enter
-Sleep 2s
-Down
-Sleep 800ms
-Enter
-Sleep 4s
+Sleep 3.5s
 
-Sleep 1s
+Sleep 2s
+
+# ── List again: pick same connector → Show config ─────────────────────────────
+Type "kkon connector list"
+Sleep 400ms
+Enter
+Sleep 2.5s
+
+Enter
+Sleep 600ms
+Down
+Sleep 500ms
+Enter
+Sleep 3.5s
+
+Sleep 2s

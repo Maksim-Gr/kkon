@@ -59,36 +59,9 @@ var HealthCheckCmd = &cobra.Command{
 			return
 		}
 
-		maxLen := 0
-		for name := range connectorStatuses {
-			if len(name) > maxLen {
-				maxLen = len(name)
-			}
-		}
-
 		color.Cyan("Connector Statuses:")
 		for name, status := range connectorStatuses {
-			fmt.Printf("  %-*s  %s\n", maxLen, name, util.ColorState(status.Connector.State))
-			for _, t := range status.Tasks {
-				fmt.Printf("  %-*s    Task %d: %s\n", maxLen, "", t.ID, util.ColorState(t.State))
-				if t.State == "FAILED" {
-					ts, err := client.GetConnectorTaskStatus(cmd.Context(), name, t.ID)
-					if err == nil && ts.Trace != "" {
-						lines := strings.Split(strings.TrimRight(ts.Trace, "\n"), "\n")
-						shown := lines
-						if len(lines) > 3 {
-							shown = lines[:3]
-						}
-						for _, line := range shown {
-							color.Yellow("  %-*s      %s\n", maxLen, "", line)
-						}
-						if len(lines) > 3 {
-							color.Yellow("  %-*s      ...\n", maxLen, "")
-							fmt.Printf("  %-*s      To see full trace run: kkon task get --connector %s --id %d\n", maxLen, "", name, t.ID)
-						}
-					}
-				}
-			}
+			printConnectorStatus(cmd.Context(), client, name, status)
 		}
 	},
 }
