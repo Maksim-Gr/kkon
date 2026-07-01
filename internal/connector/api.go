@@ -37,7 +37,7 @@ func (c *Client) ListConnectorStatuses(ctx context.Context) (ConnectorsStatusRes
 		return nil, fmt.Errorf("failed to list connector statuses: %s", string(body))
 	}
 	// The expand=status response wraps each entry: { "name": { "info": {}, "status": {...} } }
-	var expanded map[string]ConnectorExpanded
+	var expanded map[string]ExpandedEntry
 	if err := json.Unmarshal(body, &expanded); err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func (c *Client) ListConnectorStatuses(ctx context.Context) (ConnectorsStatusRes
 }
 
 // ListConnectorsExpanded returns status and config info for all connectors in one call.
-func (c *Client) ListConnectorsExpanded(ctx context.Context) (map[string]ConnectorExpanded, error) {
+func (c *Client) ListConnectorsExpanded(ctx context.Context) (map[string]ExpandedEntry, error) {
 	body, status, err := c.doRequest(ctx, http.MethodGet, "/connectors?expand=status&expand=info", nil)
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func (c *Client) ListConnectorsExpanded(ctx context.Context) (map[string]Connect
 	if !isSuccess(status) {
 		return nil, fmt.Errorf("failed to list connectors: %s", string(body))
 	}
-	var result map[string]ConnectorExpanded
+	var result map[string]ExpandedEntry
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, err
 	}

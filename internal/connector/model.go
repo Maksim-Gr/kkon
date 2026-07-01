@@ -39,8 +39,8 @@ type ErrorResponse struct {
 	Message   string `json:"message"`
 }
 
-// ConnectorExpanded is the per-connector shape returned by GET /connectors?expand=status&expand=info.
-type ConnectorExpanded struct {
+// ExpandedEntry is the per-connector shape returned by GET /connectors?expand=status&expand=info.
+type ExpandedEntry struct {
 	Info   ConnectorInfo `json:"info"`
 	Status Status        `json:"status"`
 }
