@@ -18,7 +18,7 @@ A command-line interface for managing Kafka Connect connectors via the Kafka Con
 `kkon` focuses on providing a fast, simple, and interactive CLI experience for day-to-day connector operations.
 
 <div align="center">
-  <img src="./assets/demo.gif" alt="kkon demo — health-check and connector list" width="90%">
+  <img src="./assets/demo.gif" alt="kkon demo — list connectors, inspect status and config interactively" width="90%">
 </div>
 
 ---

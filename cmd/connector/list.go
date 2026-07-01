@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/Maksim-Gr/kkon/internal/connector"
@@ -38,21 +39,27 @@ var ListCmd = &cobra.Command{
 		jsonMode := cmd.Root().PersistentFlags().Lookup("output").Value.String() == "json"
 
 		stop := util.StartSpinner("Fetching connectors...")
-		connectors, err := client.ListConnectors(cmd.Context())
-		statuses, _ := client.ListConnectorStatuses(cmd.Context())
+		expanded, err := client.ListConnectorsExpanded(cmd.Context())
 		stop()
 
 		if err != nil {
 			if jsonMode {
 				fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			} else {
-				color.Red("Failed to list connector: %v\n", err)
+				color.Red("Failed to list connectors: %v\n", err)
 			}
 			return
 		}
 
+		// Build a sorted slice of names.
+		connectors := make([]string, 0, len(expanded))
+		for name := range expanded {
+			connectors = append(connectors, name)
+		}
+		sort.Strings(connectors)
+
 		if listState != "" {
-			connectors = filterByState(connectors, statuses, listState)
+			connectors = filterByStateExpanded(connectors, expanded, listState)
 		}
 
 		if jsonMode {
@@ -63,8 +70,8 @@ var ListCmd = &cobra.Command{
 			out := make([]entry, 0, len(connectors))
 			for _, name := range connectors {
 				e := entry{Name: name}
-				if s, ok := statuses[name]; ok {
-					e.State = s.Connector.State
+				if ex, ok := expanded[name]; ok {
+					e.State = ex.Status.Connector.State
 				}
 				out = append(out, e)
 			}
@@ -88,8 +95,8 @@ var ListCmd = &cobra.Command{
 		color.Cyan("Connectors:")
 		for _, name := range connectors {
 			badge := ""
-			if s, ok := statuses[name]; ok {
-				badge = "  " + util.ColorState(s.Connector.State)
+			if ex, ok := expanded[name]; ok {
+				badge = "  " + util.ColorState(ex.Status.Connector.State)
 			}
 			fmt.Printf("  %-*s%s\n", maxLen, name, badge)
 		}
@@ -106,15 +113,16 @@ var ListCmd = &cobra.Command{
 				return
 			}
 
-			const showOpt, editOpt, cancelAction = "Show config", "Edit config", "← Cancel"
+			const showConfigOpt, editOpt, cancelAction = "Show config", "Edit config", "← Cancel"
 			var action string
 			if err := survey.AskOne(&survey.Select{
 				Message: "Action for " + selected + ":",
-				Options: []string{showOpt, editOpt, cancelAction},
+				Options: []string{showConfigOpt, editOpt, cancelAction},
 			}, &action); err != nil || action == cancelAction {
 				color.Yellow("Canceled\n")
 				return
 			}
+
 			if action == editOpt {
 				if err := editConnectorConfig(cmd.Context(), client, selected); err != nil {
 					color.Red("%v\n", err)
@@ -123,20 +131,13 @@ var ListCmd = &cobra.Command{
 			}
 		}
 
-		config, err := client.GetConnectorConfig(cmd.Context(), selected)
-		if err != nil {
-			color.Red("Failed to get connector config: %v\n", err)
-			return
-		}
+		// Non-interactive path: --config flag provided.
+		info := expanded[selected].Info
 		color.Green("config for %s connector:\n", selected)
-		var raw map[string]interface{}
-		if err := json.Unmarshal([]byte(config), &raw); err != nil {
-			fmt.Println(config)
-			return
-		}
-		pretty, err := util.ToPrettyJSON(raw)
+		pretty, err := util.ToPrettyJSON(info.Config)
 		if err != nil {
-			fmt.Println(config)
+			b, _ := json.MarshalIndent(info.Config, "", "  ")
+			fmt.Println(string(b))
 			return
 		}
 		fmt.Println(pretty)
@@ -148,12 +149,11 @@ func init() {
 	ListCmd.Flags().StringVar(&listState, "state", "", "Only show connectors in this state (e.g. RUNNING, FAILED, PAUSED)")
 }
 
-// filterByState returns the names whose connector state matches want (case-insensitive).
-// Connectors without a known status are excluded.
-func filterByState(names []string, statuses connector.ConnectorsStatusResponse, want string) []string {
+// filterByStateExpanded returns names whose connector state matches want (case-insensitive).
+func filterByStateExpanded(names []string, expanded map[string]connector.ExpandedEntry, want string) []string {
 	out := make([]string, 0, len(names))
 	for _, name := range names {
-		if s, ok := statuses[name]; ok && strings.EqualFold(s.Connector.State, want) {
+		if ex, ok := expanded[name]; ok && strings.EqualFold(ex.Status.Connector.State, want) {
 			out = append(out, name)
 		}
 	}
