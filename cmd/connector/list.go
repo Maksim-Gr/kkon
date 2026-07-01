@@ -113,37 +113,21 @@ var ListCmd = &cobra.Command{
 				return
 			}
 
-			const showStatusOpt, showConfigOpt, editOpt, cancelAction = "Show status", "Show config", "Edit config", "← Cancel"
-			for {
-				var action string
-				if err := survey.AskOne(&survey.Select{
-					Message: "Action for " + selected + ":",
-					Options: []string{showStatusOpt, showConfigOpt, editOpt, cancelAction},
-				}, &action); err != nil || action == cancelAction {
-					color.Yellow("Canceled\n")
-					return
-				}
+			const showConfigOpt, editOpt, cancelAction = "Show config", "Edit config", "← Cancel"
+			var action string
+			if err := survey.AskOne(&survey.Select{
+				Message: "Action for " + selected + ":",
+				Options: []string{showConfigOpt, editOpt, cancelAction},
+			}, &action); err != nil || action == cancelAction {
+				color.Yellow("Canceled\n")
+				return
+			}
 
-				switch action {
-				case showStatusOpt:
-					color.Cyan("Status for %s:\n", selected)
-					printConnectorStatus(cmd.Context(), client, selected, expanded[selected].Status)
-				case showConfigOpt:
-					info := expanded[selected].Info
-					color.Green("config for %s connector:\n", selected)
-					pretty, err := util.ToPrettyJSON(info.Config)
-					if err != nil {
-						b, _ := json.MarshalIndent(info.Config, "", "  ")
-						fmt.Println(string(b))
-					} else {
-						fmt.Println(pretty)
-					}
-				case editOpt:
-					if err := editConnectorConfig(cmd.Context(), client, selected); err != nil {
-						color.Red("%v\n", err)
-					}
-					return
+			if action == editOpt {
+				if err := editConnectorConfig(cmd.Context(), client, selected); err != nil {
+					color.Red("%v\n", err)
 				}
+				return
 			}
 		}
 

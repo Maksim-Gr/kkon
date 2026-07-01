@@ -30,15 +30,17 @@ Sleep 400ms
 Enter
 Sleep 3s
 
-# Select dev-heartbeat (first item) → Show status
+# Select dev-heartbeat (first item) → Show config
+Down
+Sleep 500ms
 Enter
 Sleep 600ms
 Enter
 Sleep 3.5s
 
-Sleep 2s
+Sleep 1s
 
-# ── List again: pick same connector → Show config ─────────────────────────────
+# ── List again: pick dev-broken (FAILED) → Show config ───────────────────────
 Type "kkon connector list"
 Sleep 400ms
 Enter
@@ -46,9 +48,7 @@ Sleep 2.5s
 
 Enter
 Sleep 600ms
-Down
-Sleep 500ms
 Enter
-Sleep 3.5s
+Sleep 3s
 
 Sleep 2s
