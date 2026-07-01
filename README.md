@@ -123,6 +123,9 @@ kkon connector resume [name]             # Resume a paused connector
 kkon connector restart [name]            # Restart a connector (and its tasks)
 kkon connector restart [name] --only-failed     # Restart only FAILED connector and tasks
 kkon connector health-check              # Show connector and task statuses with error traces
+kkon connector plugins                   # List connector plugins installed on the cluster
+kkon connector plugins --type sink       # Filter plugins by type (source or sink)
+kkon connector restore [file]            # Restore connectors from a backup file (interactive if omitted)
 ```
 
 > `delete`, `pause`, `resume`, and `restart` take an optional connector name — omit it to pick interactively. `delete` and `restart` accept `--yes/-y` to skip the confirmation prompt (for scripting). `restart` restarts tasks by default (`--include-tasks`); use `--only-failed` to restart only failed connectors/tasks.
@@ -162,6 +165,14 @@ kkon connector backup --dir ./backup
 ```
 
 This allows connector configurations to be versioned, reviewed, or restored later.
+
+Restore them with:
+
+```bash
+kkon connector restore ./backup/config_20240101_120000.json
+```
+
+Run `kkon connector restore` with no argument to pick a backup file interactively from the backup directory. Existing connectors are only overwritten after confirmation (use `--yes` to skip prompts, or `--dry-run` to preview).
 
 ---
 

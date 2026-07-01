@@ -45,5 +45,5 @@ var BackupCmd = &cobra.Command{
 }
 
 func init() {
-	BackupCmd.Flags().StringVarP(&backupDir, "dir", "o", "./backup", "Directory to save backup files")
+	BackupCmd.Flags().StringVar(&backupDir, "dir", "./backup", "Directory to save backup files")
 }

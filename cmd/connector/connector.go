@@ -18,6 +18,8 @@ func init() {
 	Cmd.AddCommand(UpdateCmd)
 	Cmd.AddCommand(HealthCheckCmd)
 	Cmd.AddCommand(BackupCmd)
+	Cmd.AddCommand(RestoreCmd)
+	Cmd.AddCommand(PluginsCmd)
 	Cmd.AddCommand(PauseCmd)
 	Cmd.AddCommand(ResumeCmd)
 	Cmd.AddCommand(RestartCmd)
