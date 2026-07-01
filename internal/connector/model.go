@@ -47,3 +47,10 @@ type ExpandedEntry struct {
 
 // ConnectorsStatusResponse maps connector name to its Status.
 type ConnectorsStatusResponse map[string]Status
+
+// Plugin is an entry returned by GET /connector-plugins.
+type Plugin struct {
+	Class   string `json:"class"`
+	Type    string `json:"type"` // "source" | "sink"
+	Version string `json:"version"`
+}
