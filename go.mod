@@ -1,6 +1,6 @@
 module github.com/Maksim-Gr/kkon
 
-go 1.26
+go 1.27
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
