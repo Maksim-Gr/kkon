@@ -14,7 +14,7 @@ import (
 
 // NewKafkaConnectClient creates a connector client using the configured Kafka Connect URL.
 func NewKafkaConnectClient() (*connector.Client, error) {
-	cfg, err := LoadConfig()
+	cfg, err := ResolveConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}

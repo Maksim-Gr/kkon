@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -108,6 +109,55 @@ func LoadConfig() (RestAPIConfig, error) {
 	}
 	err = yaml.Unmarshal(data, &cfg)
 	return cfg, err
+}
+
+// Environment variables that override config file values.
+const (
+	EnvConnectURL        = "KKON_CONNECT_URL"
+	EnvConnectUsername   = "KKON_CONNECT_USERNAME"
+	EnvConnectPassword   = "KKON_CONNECT_PASSWORD" //nolint:gosec // env var name, not a credential
+	EnvSchemaRegistryURL = "KKON_SCHEMA_REGISTRY_URL"
+)
+
+// ResolveConfig returns the config file values overridden by any non-empty
+// KKON_* environment variables. A missing config file is not an error.
+func ResolveConfig() (RestAPIConfig, error) {
+	cfg, err := LoadConfig()
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return cfg, err
+	}
+
+	if v := os.Getenv(EnvConnectURL); v != "" {
+		cfg.KafkaConnect.URL = withDefaultScheme(v)
+	}
+	if v := os.Getenv(EnvConnectUsername); v != "" {
+		cfg.KafkaConnect.Username = v
+	}
+	if v := os.Getenv(EnvConnectPassword); v != "" {
+		cfg.KafkaConnect.Password = v
+	}
+	if v := os.Getenv(EnvSchemaRegistryURL); v != "" {
+		cfg.SchemaRegistry.URL = withDefaultScheme(v)
+	}
+	return cfg, nil
+}
+
+// EnvOverrides returns the names of the KKON_* environment variables that are set.
+func EnvOverrides() []string {
+	var set []string
+	for _, name := range []string{EnvConnectURL, EnvConnectUsername, EnvConnectPassword, EnvSchemaRegistryURL} {
+		if os.Getenv(name) != "" {
+			set = append(set, name)
+		}
+	}
+	return set
+}
+
+func withDefaultScheme(u string) string {
+	if strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://") {
+		return u
+	}
+	return "http://" + u
 }
 
 // IsSurveyInterrupt reports whether err is a survey terminal interrupt (Ctrl+C).

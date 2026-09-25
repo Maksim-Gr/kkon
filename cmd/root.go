@@ -62,7 +62,7 @@ you through configuring the Kafka Connect URL.`,
 			return nil
 		}
 
-		cfg, err := util.LoadConfig()
+		cfg, err := util.ResolveConfig()
 		if err != nil || cfg.KafkaConnect.URL == "" {
 			color.Yellow("No Kafka Connect URL configured.")
 			color.Cyan("Running initial configuration...\n")

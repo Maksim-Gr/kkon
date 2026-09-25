@@ -35,11 +35,36 @@ Notes:
   `kkon connector create` asks whether to use Avro/Protobuf/JSON Schema
   converters.
 
+## Environment variables
+
+Environment variables override the matching config file values, which makes
+`kkon` usable in CI without a config file or the interactive setup:
+
+| Variable | Overrides |
+|----------|-----------|
+| `KKON_CONNECT_URL` | `kafkaConnect.url` |
+| `KKON_CONNECT_USERNAME` | `kafkaConnect.username` |
+| `KKON_CONNECT_PASSWORD` | `kafkaConnect.password` |
+| `KKON_SCHEMA_REGISTRY_URL` | `schemaRegistry.url` |
+
+Empty variables are ignored. When `KKON_CONNECT_URL` is set, no config file is
+needed and the first-run setup is skipped. URLs without a scheme get `http://`.
+
+```bash
+KKON_CONNECT_URL=http://connect:8083 kkon connector health-check --output json
+```
+
+`kkon config set` only edits the config file; environment variables are never
+written to it.
+
 ## View current config
 
 ```bash
 ./kkon config show
 ```
+
+This prints the effective configuration, including any environment variable
+overrides (listed on an `Overridden by env:` line).
 
 ## Dry run
 

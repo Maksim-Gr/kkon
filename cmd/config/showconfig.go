@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/Maksim-Gr/kkon/internal/util"
 
@@ -12,12 +13,13 @@ import (
 
 // ShowConfigCmd represents the showConfig command.
 var ShowConfigCmd = &cobra.Command{
-	Use:     "show",
-	Short:   "Show current configuration",
-	Long:    `Print the config file path and its contents. The password is masked.`,
+	Use:   "show",
+	Short: "Show current configuration",
+	Long: `Print the config file path and the effective configuration (file values
+overridden by KKON_* environment variables). The password is masked.`,
 	Example: `  kkon config show`,
 	RunE: func(_ *cobra.Command, _ []string) error {
-		cfg, err := util.LoadConfig()
+		cfg, err := util.ResolveConfig()
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
 		}
@@ -28,6 +30,9 @@ var ShowConfigCmd = &cobra.Command{
 
 		if configPath, err := util.GetConfigPath(); err == nil {
 			color.Cyan("Config file: %s\n", configPath)
+		}
+		if env := util.EnvOverrides(); len(env) > 0 {
+			color.Yellow("Overridden by env: %s\n", strings.Join(env, ", "))
 		}
 
 		color.Cyan("Current Configuration:")

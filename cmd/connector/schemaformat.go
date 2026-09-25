@@ -33,7 +33,7 @@ func promptSchemaRegistryFormat(cfg map[string]string) error {
 	}
 
 	defaultURL := ""
-	if loaded, err := util.LoadConfig(); err == nil {
+	if loaded, err := util.ResolveConfig(); err == nil {
 		defaultURL = loaded.SchemaRegistry.URL
 	}
 
