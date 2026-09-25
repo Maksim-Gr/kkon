@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+### Added
+- Environment variables `KKON_CONNECT_URL`, `KKON_CONNECT_USERNAME`,
+  `KKON_CONNECT_PASSWORD`, and `KKON_SCHEMA_REGISTRY_URL` override the config
+  file. With `KKON_CONNECT_URL` set, no config file is required and the
+  first-run setup is skipped. `kkon config show` prints the effective config
+  and lists active overrides.
+
 ---
 
 ## v2.0.0 — 2026-07-03

@@ -44,7 +44,7 @@ The tool is intended for developers and operators who want a straightforward way
 - Interactive CLI prompts (arrow-key navigation, cancel option on every prompt)
 - Connection test after saving credentials
 - Basic auth support
-- Simple configuration-driven setup
+- Simple configuration-driven setup, with `KKON_*` environment variable overrides for CI
 - Scriptable: commands exit `1` on failure (`0` for success, user cancel, or nothing to do), and `--output json` produces clean, pipeable JSON for both read and (fully non-interactive) mutating commands, including `--dry-run` previews
 
 ---
@@ -99,6 +99,14 @@ kafkaConnect:
   url: http://localhost:8083
   username: ""
   password: ""
+```
+
+### Environment variables
+
+`KKON_CONNECT_URL`, `KKON_CONNECT_USERNAME`, `KKON_CONNECT_PASSWORD`, and `KKON_SCHEMA_REGISTRY_URL` override the config file. With `KKON_CONNECT_URL` set, no config file or interactive setup is needed — handy in CI:
+
+```bash
+KKON_CONNECT_URL=http://connect:8083 kkon connector health-check --output json
 ```
 
 ---
