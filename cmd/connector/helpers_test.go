@@ -171,7 +171,13 @@ func TestFieldsToPrompt(t *testing.T) {
 func TestIsSecretField(t *testing.T) {
 	assert.True(t, isSecretField("connection.password"))
 	assert.True(t, isSecretField("aws.secret.access.key"))
+	assert.True(t, isSecretField("sasl.jaas.config"))
+	assert.True(t, isSecretField("datadog.api.key"))
+	assert.True(t, isSecretField("auth.token"))
+	assert.True(t, isSecretField("gcs.credentials.json"))
 	assert.False(t, isSecretField("connection.url"))
+	assert.False(t, isSecretField("key.converter"))
+	assert.False(t, isSecretField("aws.access.key.id"))
 }
 
 func TestRunBulk_AllSucceed(t *testing.T) {

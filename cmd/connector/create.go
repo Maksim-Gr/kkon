@@ -534,9 +534,17 @@ func anyToString(v any) string {
 	return fmt.Sprintf("%v", v)
 }
 
+// secretFieldMarkers are substrings of config keys that hold credentials.
+var secretFieldMarkers = []string{"password", "secret", "token", "credential", "jaas.config", "api.key", "apikey", "private.key"}
+
 // isSecretField reports whether a config key looks like a credential, so the
 // wizard can mask the input.
 func isSecretField(name string) bool {
 	n := strings.ToLower(name)
-	return strings.Contains(n, "password") || strings.Contains(n, "secret")
+	for _, m := range secretFieldMarkers {
+		if strings.Contains(n, m) {
+			return true
+		}
+	}
+	return false
 }
