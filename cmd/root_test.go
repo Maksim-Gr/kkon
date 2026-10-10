@@ -2,12 +2,15 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Maksim-Gr/kkon/internal/util"
@@ -136,4 +139,51 @@ func TestExecute_MissingURLWithoutTerminalFails(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no Kafka Connect URL configured")
 	assert.Contains(t, err.Error(), util.EnvConnectURL)
+}
+
+// captureStdout runs fn and returns what it wrote to os.Stdout.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	orig := os.Stdout
+	os.Stdout = w
+	defer func() { os.Stdout = orig }()
+
+	fn()
+	require.NoError(t, w.Close())
+	out, err := io.ReadAll(r)
+	require.NoError(t, err)
+	return string(out)
+}
+
+// statusServer serves GET /connectors?expand=status with the given
+// connector name → connector state pairs (all tasks RUNNING).
+func statusServer(t *testing.T, states map[string]string) {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		body := map[string]any{}
+		for name, state := range states {
+			body[name] = map[string]any{"status": map[string]any{
+				"name":      name,
+				"connector": map[string]string{"state": state},
+				"tasks":     []map[string]any{{"id": 0, "state": "RUNNING"}},
+			}}
+		}
+		_ = json.NewEncoder(w).Encode(body)
+	}))
+	t.Cleanup(srv.Close)
+	setTestConfig(t, srv.URL)
+}
+
+func TestExecute_HealthCheckSortedOutput(t *testing.T) {
+	statusServer(t, map[string]string{"delta": "RUNNING", "alpha": "RUNNING", "charlie": "RUNNING", "bravo": "RUNNING"})
+
+	for range 5 {
+		out := captureStdout(t, func() {
+			require.NoError(t, execute("connector", "health-check"))
+		})
+		a, b, c, d := strings.Index(out, "alpha"), strings.Index(out, "bravo"), strings.Index(out, "charlie"), strings.Index(out, "delta")
+		require.True(t, a >= 0 && a < b && b < c && c < d, "connectors not sorted:\n%s", out)
+	}
 }

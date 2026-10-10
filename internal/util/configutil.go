@@ -6,22 +6,20 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"gopkg.in/yaml.v3"
 )
 
-// KeysFromMap extracts and returns a slice of keys from the given map.
+// KeysFromMap returns the keys of m in sorted order.
 func KeysFromMap(m map[string]string) []string {
-	keys := make([]string, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
-	}
-	return keys
+	return slices.Sorted(maps.Keys(m))
 }
 
 // ToPrettyJSON marshals v to an indented JSON string.
