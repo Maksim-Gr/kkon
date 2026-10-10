@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -67,7 +68,7 @@ func (c *Client) ListConnectorsExpanded(ctx context.Context) (map[string]Expande
 
 // GetConnectorStatus returns the status of a single connector.
 func (c *Client) GetConnectorStatus(ctx context.Context, name string) (Status, error) {
-	body, status, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/connectors/%s/status", name), nil)
+	body, status, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/connectors/%s/status", url.PathEscape(name)), nil)
 	if err != nil {
 		return Status{}, err
 	}
@@ -83,7 +84,7 @@ func (c *Client) GetConnectorStatus(ctx context.Context, name string) (Status, e
 
 // DeleteConnector removes the named connector from Kafka Connect.
 func (c *Client) DeleteConnector(ctx context.Context, name string) error {
-	body, status, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/connectors/%s", name), nil)
+	body, status, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/connectors/%s", url.PathEscape(name)), nil)
 	if err != nil {
 		return err
 	}
@@ -117,7 +118,7 @@ func (c *Client) GetConnectorConfig(ctx context.Context, name string) (string, e
 	body, status, err := c.doRequest(
 		ctx,
 		http.MethodGet,
-		"/connectors/"+name+"/config",
+		"/connectors/"+url.PathEscape(name)+"/config",
 		nil,
 	)
 	if err != nil {
@@ -135,7 +136,7 @@ func (c *Client) UpdateConnectorConfig(ctx context.Context, name string, cfg map
 	if err != nil {
 		return err
 	}
-	body, status, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/connectors/%s/config", name), b)
+	body, status, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/connectors/%s/config", url.PathEscape(name)), b)
 	if err != nil {
 		return err
 	}
@@ -150,7 +151,7 @@ func (c *Client) GetConnectorConfigJSON(ctx context.Context, name string) (map[s
 	body, status, err := c.doRequest(
 		ctx,
 		http.MethodGet,
-		"/connectors/"+name+"/config",
+		"/connectors/"+url.PathEscape(name)+"/config",
 		nil,
 	)
 	if err != nil {
@@ -209,7 +210,7 @@ func (c *Client) ValidateConnectorConfig(ctx context.Context, connectorClass str
 	if err != nil {
 		return ConfigValidationResponse{}, err
 	}
-	path := fmt.Sprintf("/connector-plugins/%s/config/validate", connectorClass)
+	path := fmt.Sprintf("/connector-plugins/%s/config/validate", url.PathEscape(connectorClass))
 	body, status, err := c.doRequest(ctx, http.MethodPut, path, b)
 	if err != nil {
 		return ConfigValidationResponse{}, err
