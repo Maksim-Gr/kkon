@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/Maksim-Gr/kkon/internal/connector"
 
@@ -257,4 +258,17 @@ func TestWaitForConnectorRunning_AllErrors(t *testing.T) {
 	status, healthy := waitForConnectorRunning(context.Background(), client, "alpha", 3, 0)
 	assert.False(t, healthy)
 	assert.Empty(t, status.Name)
+}
+
+func TestWaitForConnectorRunning_StopsOnCancel(t *testing.T) {
+	client := newStatusClient(t, func(_ int) (int, string) {
+		return http.StatusOK, `{"name":"alpha","connector":{"state":"RESTARTING"},"tasks":[]}`
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	start := time.Now()
+	_, healthy := waitForConnectorRunning(ctx, client, "alpha", 5, time.Second)
+	assert.False(t, healthy)
+	assert.Less(t, time.Since(start), 500*time.Millisecond)
 }

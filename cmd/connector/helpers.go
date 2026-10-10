@@ -458,13 +458,17 @@ func verifyConnectorOrRevert(ctx context.Context, client *connector.Client, name
 
 // waitForConnectorRunning polls the connector's status up to attempts times,
 // sleeping delay between tries, and returns once it is healthy or attempts are
-// exhausted. The returned bool reports whether it became healthy; the returned
-// status is the last one observed (zero-valued, with empty Name, if every poll
-// errored).
+// exhausted or ctx is canceled. The returned bool reports whether it became
+// healthy; the returned status is the last one observed (zero-valued, with
+// empty Name, if every poll errored).
 func waitForConnectorRunning(ctx context.Context, client *connector.Client, name string, attempts int, delay time.Duration) (connector.Status, bool) {
 	var status connector.Status
 	for i := 0; i < attempts; i++ {
-		time.Sleep(delay)
+		select {
+		case <-ctx.Done():
+			return status, false
+		case <-time.After(delay):
+		}
 		s, err := client.GetConnectorStatus(ctx, name)
 		if err != nil {
 			continue
