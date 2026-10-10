@@ -21,9 +21,9 @@ import (
 // configMapFromFile extracts a connector config map from a connector JSON file,
 // accepting either the wrapped {"name":..,"config":{..}} form or a flat config
 // map. For the wrapped form the top-level name is folded into the config, since
-// the validate endpoint requires it. It returns nil if neither form parses, in
-// which case validation is skipped.
-func configMapFromFile(b []byte) map[string]string {
+// the validate endpoint requires it. wrapped reports which form was found. It
+// returns a nil map if neither form parses, in which case validation is skipped.
+func configMapFromFile(b []byte) (cfg map[string]string, wrapped bool) {
 	var wrapper struct {
 		Name   string            `json:"name"`
 		Config map[string]string `json:"config"`
@@ -33,15 +33,15 @@ func configMapFromFile(b []byte) map[string]string {
 			cfg := make(map[string]string, len(wrapper.Config)+1)
 			maps.Copy(cfg, wrapper.Config)
 			cfg["name"] = wrapper.Name
-			return cfg
+			return cfg, true
 		}
-		return wrapper.Config
+		return wrapper.Config, true
 	}
 	var flat map[string]string
 	if err := json.Unmarshal(b, &flat); err == nil {
-		return flat
+		return flat, false
 	}
-	return nil
+	return nil, false
 }
 
 // argOrEmpty returns the first positional arg, or "" if none was provided.

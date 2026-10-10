@@ -307,3 +307,45 @@ func TestExecute_UpdateAcceptsName(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, []string{"/connectors/missing/config"}, paths)
 }
+
+func TestExecute_CreateFromFlatFileWrapsConfig(t *testing.T) {
+	var posted []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/config/validate"):
+			_, _ = w.Write([]byte(`{"name": "x", "error_count": 0, "configs": []}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/connectors":
+			posted, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"name": "flat", "config": {}, "tasks": []}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	setTestConfig(t, srv.URL)
+	resetFlags(t)
+	t.Cleanup(func() { require.NoError(t, connector.CreateCmd.Flags().Set("file", "")) })
+
+	file := filepath.Join(t.TempDir(), "flat.json")
+	require.NoError(t, os.WriteFile(file, []byte(`{"name": "flat", "connector.class": "com.example.Source", "tasks.max": "1"}`), 0o600))
+
+	out := captureStdout(t, func() {
+		require.NoError(t, execute("connector", "create", "--file", file, "--output", "json"))
+	})
+	assert.JSONEq(t, `{"name": "flat", "action": "create", "result": "ok"}`, out)
+	assert.JSONEq(t, `{"name": "flat", "config": {"name": "flat", "connector.class": "com.example.Source", "tasks.max": "1"}}`, string(posted))
+}
+
+func TestExecute_CreateFromFlatFileRequiresName(t *testing.T) {
+	setTestConfig(t, "http://127.0.0.1:1")
+	resetFlags(t)
+	t.Cleanup(func() { require.NoError(t, connector.CreateCmd.Flags().Set("file", "")) })
+
+	file := filepath.Join(t.TempDir(), "flat.json")
+	require.NoError(t, os.WriteFile(file, []byte(`{"connector.class": "com.example.Source"}`), 0o600))
+
+	err := execute("connector", "create", "--file", file, "--output", "json")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `has no "name"`)
+}
