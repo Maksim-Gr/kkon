@@ -109,3 +109,31 @@ func TestExecute_NothingToDoIsNotAFailure(t *testing.T) {
 	err := execute("connector", "pause")
 	assert.True(t, errors.Is(err, util.ErrNothingToDo))
 }
+
+func TestExecute_MalformedConfigIsReported(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	dir := filepath.Join(home, ".config", "kkon")
+	require.NoError(t, os.MkdirAll(dir, 0o700))
+	path := filepath.Join(dir, "config.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("kafkaConnect: [not a map"), 0o600))
+
+	err := execute("connector", "list")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to load config")
+
+	// The broken file must be left for the user to fix, not overwritten.
+	b, readErr := os.ReadFile(path) //nolint:gosec
+	require.NoError(t, readErr)
+	assert.Equal(t, "kafkaConnect: [not a map", string(b))
+}
+
+func TestExecute_MissingURLWithoutTerminalFails(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(util.EnvConnectURL, "")
+
+	err := execute("connector", "list")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no Kafka Connect URL configured")
+	assert.Contains(t, err.Error(), util.EnvConnectURL)
+}

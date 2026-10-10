@@ -63,7 +63,13 @@ you through configuring the Kafka Connect URL.`,
 		}
 
 		cfg, err := util.ResolveConfig()
-		if err != nil || cfg.KafkaConnect.URL == "" {
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w (fix the file or rerun `kkon config set`)", err)
+		}
+		if cfg.KafkaConnect.URL == "" {
+			if util.IsJSONOutput(cmd) || !util.IsTerminal(os.Stdin) {
+				return fmt.Errorf("no Kafka Connect URL configured: run `kkon config set` or set %s", util.EnvConnectURL)
+			}
 			color.Yellow("No Kafka Connect URL configured.")
 			color.Cyan("Running initial configuration...\n")
 			if err := config.ConfigureCmd.RunE(cmd, args); err != nil {
