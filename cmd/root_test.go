@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Maksim-Gr/kkon/cmd/connector"
 	"github.com/Maksim-Gr/kkon/internal/util"
 
 	"github.com/stretchr/testify/assert"
@@ -186,4 +187,22 @@ func TestExecute_HealthCheckSortedOutput(t *testing.T) {
 		a, b, c, d := strings.Index(out, "alpha"), strings.Index(out, "bravo"), strings.Index(out, "charlie"), strings.Index(out, "delta")
 		require.True(t, a >= 0 && a < b && b < c && c < d, "connectors not sorted:\n%s", out)
 	}
+}
+
+func TestExecute_HealthCheckFailOnUnhealthy(t *testing.T) {
+	statusServer(t, map[string]string{"alpha": "RUNNING", "bravo": "FAILED"})
+	t.Cleanup(func() { require.NoError(t, connector.HealthCheckCmd.Flags().Set("fail-on-unhealthy", "false")) })
+
+	// Without the flag an unhealthy connector is reported but not an error.
+	captureStdout(t, func() { require.NoError(t, execute("connector", "health-check")) })
+
+	var err error
+	captureStdout(t, func() { err = execute("connector", "health-check", "--fail-on-unhealthy") })
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "1 of 2 connector(s) unhealthy")
+
+	// Filtering to healthy connectors only passes.
+	captureStdout(t, func() { err = execute("connector", "health-check", "--fail-on-unhealthy", "--state", "RUNNING") })
+	require.NoError(t, err)
+	require.NoError(t, connector.HealthCheckCmd.Flags().Set("state", ""))
 }
