@@ -63,7 +63,7 @@ command exits 1 when any listed connector or task is not RUNNING.`,
 		} else {
 			color.Cyan("Connector Statuses:")
 			for _, name := range slices.Sorted(maps.Keys(connectorStatuses)) {
-				printConnectorStatus(cmd.Context(), client, name, connectorStatuses[name])
+				printConnectorStatus(name, connectorStatuses[name])
 			}
 		}
 

@@ -478,26 +478,23 @@ func waitForConnectorRunning(ctx context.Context, client *connector.Client, name
 }
 
 // printConnectorStatus prints the state of a connector and its tasks.
-// For FAILED tasks it fetches and shows the first 3 lines of the error trace.
-func printConnectorStatus(ctx context.Context, client *connector.Client, name string, status connector.Status) {
+// For FAILED tasks it shows the first 3 lines of the error trace.
+func printConnectorStatus(name string, status connector.Status) {
 	fmt.Printf("  %s  %s\n", name, util.ColorState(status.Connector.State))
 	for _, t := range status.Tasks {
 		fmt.Printf("    Task %d: %s\n", t.ID, util.ColorState(t.State))
-		if t.State == "FAILED" {
-			ts, err := client.GetConnectorTaskStatus(ctx, name, t.ID)
-			if err == nil && ts.Trace != "" {
-				lines := strings.Split(strings.TrimRight(ts.Trace, "\n"), "\n")
-				shown := lines
-				if len(lines) > 3 {
-					shown = lines[:3]
-				}
-				for _, line := range shown {
-					color.Yellow("      %s\n", line)
-				}
-				if len(lines) > 3 {
-					color.Yellow("      ...\n")
-					fmt.Printf("      To see full trace run: kkon task get --connector %s --id %d\n", name, t.ID)
-				}
+		if t.State == "FAILED" && t.Trace != "" {
+			lines := strings.Split(strings.TrimRight(t.Trace, "\n"), "\n")
+			shown := lines
+			if len(lines) > 3 {
+				shown = lines[:3]
+			}
+			for _, line := range shown {
+				color.Yellow("      %s\n", line)
+			}
+			if len(lines) > 3 {
+				color.Yellow("      ...\n")
+				fmt.Printf("      To see full trace run: kkon task get --connector %s --id %d\n", name, t.ID)
 			}
 		}
 	}

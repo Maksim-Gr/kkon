@@ -206,3 +206,20 @@ func TestExecute_HealthCheckFailOnUnhealthy(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, connector.HealthCheckCmd.Flags().Set("state", ""))
 }
+
+func TestExecute_HealthCheckUsesTraceFromStatus(t *testing.T) {
+	var taskRequests int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/tasks/") {
+			taskRequests++
+		}
+		_, _ = w.Write([]byte(`{"alpha": {"status": {"name": "alpha", "connector": {"state": "RUNNING"},
+			"tasks": [{"id": 0, "state": "FAILED", "trace": "java.lang.RuntimeException: boom\n\tat Foo.bar"}]}}}`))
+	}))
+	t.Cleanup(srv.Close)
+	setTestConfig(t, srv.URL)
+
+	out := captureStdout(t, func() { require.NoError(t, execute("connector", "health-check")) })
+	assert.Contains(t, out, "Task 0: FAILED")
+	assert.Zero(t, taskRequests, "trace should come from the status response")
+}
