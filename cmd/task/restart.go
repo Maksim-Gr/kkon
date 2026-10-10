@@ -91,8 +91,7 @@ func init() {
 	Cmd.AddCommand(restartCmd)
 }
 
-// printRestartJSON emits the task restart result in the same shape as the
-// connector lifecycle commands, plus the task id.
+// printRestartJSON matches the connector lifecycle JSON shape, plus the task id.
 func printRestartJSON(name string, id int, result string) {
 	b, _ := json.Marshal(map[string]any{"name": name, "task": id, "action": "restart", "result": result})
 	fmt.Println(string(b))

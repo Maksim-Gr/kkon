@@ -40,8 +40,7 @@ first time kkon needs a connection.`,
 			return fmt.Errorf("failed to determine config path: %w", err)
 		}
 
-		// Start from the saved config so sections not edited here (e.g.
-		// Schema Registry) survive the save.
+		// Start from the saved config so the Schema Registry section survives the save.
 		cfg, loadErr := util.LoadConfig()
 		if loadErr != nil {
 			cfg = util.RestAPIConfig{}

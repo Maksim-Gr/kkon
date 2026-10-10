@@ -127,7 +127,6 @@ func TestExecute_MalformedConfigIsReported(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to load config")
 
-	// The broken file must be left for the user to fix, not overwritten.
 	b, readErr := os.ReadFile(path) //nolint:gosec
 	require.NoError(t, readErr)
 	assert.Equal(t, "kafkaConnect: [not a map", string(b))
@@ -143,7 +142,6 @@ func TestExecute_MissingURLWithoutTerminalFails(t *testing.T) {
 	assert.Contains(t, err.Error(), util.EnvConnectURL)
 }
 
-// captureStdout runs fn and returns what it wrote to os.Stdout.
 func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
 	r, w, err := os.Pipe()
@@ -159,8 +157,7 @@ func captureStdout(t *testing.T, fn func()) string {
 	return string(out)
 }
 
-// statusServer serves GET /connectors?expand=status with the given
-// connector name → connector state pairs (all tasks RUNNING).
+// statusServer serves GET /connectors?expand=status for name → state pairs.
 func statusServer(t *testing.T, states map[string]string) {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -194,7 +191,6 @@ func TestExecute_HealthCheckFailOnUnhealthy(t *testing.T) {
 	statusServer(t, map[string]string{"alpha": "RUNNING", "bravo": "FAILED"})
 	t.Cleanup(func() { require.NoError(t, connector.HealthCheckCmd.Flags().Set("fail-on-unhealthy", "false")) })
 
-	// Without the flag an unhealthy connector is reported but not an error.
 	captureStdout(t, func() { require.NoError(t, execute("connector", "health-check")) })
 
 	var err error
@@ -202,7 +198,6 @@ func TestExecute_HealthCheckFailOnUnhealthy(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "1 of 2 connector(s) unhealthy")
 
-	// Filtering to healthy connectors only passes.
 	captureStdout(t, func() { err = execute("connector", "health-check", "--fail-on-unhealthy", "--state", "RUNNING") })
 	require.NoError(t, err)
 	require.NoError(t, connector.HealthCheckCmd.Flags().Set("state", ""))
@@ -225,7 +220,7 @@ func TestExecute_HealthCheckUsesTraceFromStatus(t *testing.T) {
 	assert.Zero(t, taskRequests, "trace should come from the status response")
 }
 
-// resetFlags restores flags that tests set on the shared global command tree.
+// resetFlags restores flags on the global command tree shared by tests.
 func resetFlags(t *testing.T) {
 	t.Helper()
 	t.Cleanup(func() {
@@ -239,7 +234,7 @@ func resetFlags(t *testing.T) {
 	})
 }
 
-// taskServer serves a connector with one task (id 0) and records mutating requests.
+// taskServer serves one connector with task 0 and records mutating requests.
 func taskServer(t *testing.T) *[]string {
 	t.Helper()
 	var mutations []string
@@ -302,7 +297,6 @@ func TestExecute_UpdateAcceptsName(t *testing.T) {
 	t.Cleanup(srv.Close)
 	setTestConfig(t, srv.URL)
 
-	// With a name, update goes straight to that connector's config (no list/prompt).
 	err := execute("connector", "update", "missing")
 	require.Error(t, err)
 	assert.Equal(t, []string{"/connectors/missing/config"}, paths)

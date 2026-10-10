@@ -35,7 +35,7 @@ connector and task when --connector or --id are not given.`,
 			return err
 		}
 
-		// Read-only: --dry-run is ignored, like the other read commands.
+		// Read-only, so --dry-run does not apply.
 		id, err := util.ResolveTaskID(cmd.Context(), client, name, taskID, false)
 		if err != nil {
 			return err
