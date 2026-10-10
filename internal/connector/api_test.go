@@ -165,3 +165,14 @@ func TestRestartConnectorTaskEscapesName(t *testing.T) {
 	require.NoError(t, client.RestartConnectorTask(context.Background(), "a?b", 1))
 	assert.Equal(t, "/connectors/a%3Fb/tasks/1/restart", rec.path)
 }
+
+func TestErrorUsesStructuredMessage(t *testing.T) {
+	client, _ := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error_code":404,"message":"Connector alpha not found"}`))
+	})
+
+	_, err := client.GetConnectorStatus(context.Background(), "alpha")
+	require.Error(t, err)
+	assert.Equal(t, "failed to get status for alpha: Connector alpha not found", err.Error())
+}

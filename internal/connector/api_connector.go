@@ -14,7 +14,7 @@ func (c *Client) PauseConnector(ctx context.Context, name string) error {
 		return err
 	}
 	if !isSuccess(status) {
-		return fmt.Errorf("failed to pause connector %s: %s", name, string(body))
+		return fmt.Errorf("failed to pause connector %s: %s", name, errorMessage(body))
 	}
 	return nil
 }
@@ -26,7 +26,7 @@ func (c *Client) ResumeConnector(ctx context.Context, name string) error {
 		return err
 	}
 	if !isSuccess(status) {
-		return fmt.Errorf("failed to resume connector %s: %s", name, string(body))
+		return fmt.Errorf("failed to resume connector %s: %s", name, errorMessage(body))
 	}
 	return nil
 }
@@ -40,7 +40,7 @@ func (c *Client) RestartConnector(ctx context.Context, name string, includeTasks
 		return err
 	}
 	if !isSuccess(status) {
-		return fmt.Errorf("failed to restart connector %s: %s", name, string(body))
+		return fmt.Errorf("failed to restart connector %s: %s", name, errorMessage(body))
 	}
 	return nil
 }

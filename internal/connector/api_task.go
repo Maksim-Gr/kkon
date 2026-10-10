@@ -33,7 +33,7 @@ func (c *Client) ListConnectorTasks(ctx context.Context, connectorName string) (
 		return nil, err
 	}
 	if !isSuccess(status) {
-		return nil, fmt.Errorf("failed to list tasks for %s: %s", connectorName, string(body))
+		return nil, fmt.Errorf("failed to list tasks for %s: %s", connectorName, errorMessage(body))
 	}
 
 	var raw []struct {
@@ -58,7 +58,7 @@ func (c *Client) GetConnectorTaskStatus(ctx context.Context, connectorName strin
 		return TaskStatus{}, err
 	}
 	if !isSuccess(status) {
-		return TaskStatus{}, fmt.Errorf("failed to get task status for %s task %d: %s", connectorName, taskID, string(body))
+		return TaskStatus{}, fmt.Errorf("failed to get task status for %s task %d: %s", connectorName, taskID, errorMessage(body))
 	}
 
 	var ts TaskStatus
@@ -77,7 +77,7 @@ func (c *Client) RestartConnectorTask(ctx context.Context, connectorName string,
 		return err
 	}
 	if !isSuccess(status) {
-		return fmt.Errorf("failed to restart %s task %d: %s", connectorName, taskID, string(body))
+		return fmt.Errorf("failed to restart %s task %d: %s", connectorName, taskID, errorMessage(body))
 	}
 	return nil
 }

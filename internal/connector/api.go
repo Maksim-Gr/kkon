@@ -20,7 +20,7 @@ func (c *Client) ListConnectors(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 	if !isSuccess(status) {
-		return nil, fmt.Errorf("failed to list connectors: %s", string(body))
+		return nil, fmt.Errorf("failed to list connectors: %s", errorMessage(body))
 	}
 	var connectors []string
 	if err := json.Unmarshal(body, &connectors); err != nil {
@@ -36,7 +36,7 @@ func (c *Client) ListConnectorStatuses(ctx context.Context) (ConnectorsStatusRes
 		return nil, err
 	}
 	if !isSuccess(status) {
-		return nil, fmt.Errorf("failed to list connector statuses: %s", string(body))
+		return nil, fmt.Errorf("failed to list connector statuses: %s", errorMessage(body))
 	}
 	// The expand=status response wraps each entry: { "name": { "info": {}, "status": {...} } }
 	var expanded map[string]ExpandedEntry
@@ -57,7 +57,7 @@ func (c *Client) ListConnectorsExpanded(ctx context.Context) (map[string]Expande
 		return nil, err
 	}
 	if !isSuccess(status) {
-		return nil, fmt.Errorf("failed to list connectors: %s", string(body))
+		return nil, fmt.Errorf("failed to list connectors: %s", errorMessage(body))
 	}
 	var result map[string]ExpandedEntry
 	if err := json.Unmarshal(body, &result); err != nil {
@@ -73,7 +73,7 @@ func (c *Client) GetConnectorStatus(ctx context.Context, name string) (Status, e
 		return Status{}, err
 	}
 	if !isSuccess(status) {
-		return Status{}, fmt.Errorf("failed to get status for %s: %s", name, string(body))
+		return Status{}, fmt.Errorf("failed to get status for %s: %s", name, errorMessage(body))
 	}
 	var s Status
 	if err := json.Unmarshal(body, &s); err != nil {
@@ -92,7 +92,7 @@ func (c *Client) DeleteConnector(ctx context.Context, name string) error {
 		return fmt.Errorf("failed to delete connector %s: a rebalance is in process", name)
 	}
 	if !isSuccess(status) {
-		return fmt.Errorf("failed to delete connector %s: %s", name, string(body))
+		return fmt.Errorf("failed to delete connector %s: %s", name, errorMessage(body))
 	}
 	return nil
 }
@@ -104,7 +104,7 @@ func (c *Client) SubmitConnector(ctx context.Context, configJSON string) (Connec
 		return ConnectorInfo{}, err
 	}
 	if !isSuccess(status) {
-		return ConnectorInfo{}, fmt.Errorf("failed to submit connector configuration: %s", string(body))
+		return ConnectorInfo{}, fmt.Errorf("failed to submit connector configuration: %s", errorMessage(body))
 	}
 	var info ConnectorInfo
 	if err := json.Unmarshal(body, &info); err != nil {
@@ -125,7 +125,7 @@ func (c *Client) GetConnectorConfig(ctx context.Context, name string) (string, e
 		return "", err
 	}
 	if !isSuccess(status) {
-		return "", fmt.Errorf("failed to get connector config: %s", body)
+		return "", fmt.Errorf("failed to get connector config: %s", errorMessage(body))
 	}
 	return string(body), nil
 }
@@ -141,7 +141,7 @@ func (c *Client) UpdateConnectorConfig(ctx context.Context, name string, cfg map
 		return err
 	}
 	if !isSuccess(status) {
-		return fmt.Errorf("failed to update connector %s: %s", name, string(body))
+		return fmt.Errorf("failed to update connector %s: %s", name, errorMessage(body))
 	}
 	return nil
 }
@@ -158,7 +158,7 @@ func (c *Client) GetConnectorConfigJSON(ctx context.Context, name string) (map[s
 		return nil, err
 	}
 	if !isSuccess(status) {
-		return nil, fmt.Errorf("failed to get config for %s: %s", name, body)
+		return nil, fmt.Errorf("failed to get config for %s: %s", name, errorMessage(body))
 	}
 
 	var cfg map[string]string
@@ -216,7 +216,7 @@ func (c *Client) ValidateConnectorConfig(ctx context.Context, connectorClass str
 		return ConfigValidationResponse{}, err
 	}
 	if !isSuccess(status) {
-		return ConfigValidationResponse{}, fmt.Errorf("failed to validate config: %s", string(body))
+		return ConfigValidationResponse{}, fmt.Errorf("failed to validate config: %s", errorMessage(body))
 	}
 	var v ConfigValidationResponse
 	if err := json.Unmarshal(body, &v); err != nil {
