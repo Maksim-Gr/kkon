@@ -124,7 +124,7 @@ kkon connector list                      # List connectors with status badges
 kkon connector create                    # Create from template (RabbitMQ, S3 Sink, JDBC, Debezium Postgres)
 kkon connector create --plugin <class>   # Create from any plugin installed on the cluster
 kkon connector create -f connector.json  # Create from JSON file
-kkon connector update                    # Update connector config (shows before→after diff)
+kkon connector update [name]             # Update connector config (shows before→after diff)
 kkon connector delete [name...]          # Delete one or more connectors (interactive multi-select, names, or --all)
 kkon connector delete my-conn --yes      # Delete without the confirmation prompt (scriptable)
 kkon connector pause [name...]           # Pause connectors and their tasks

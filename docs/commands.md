@@ -41,7 +41,7 @@ kkon connector <subcommand>
 
 Subcommands:
 - `create` Create a connector from predefined templates, from any installed plugin (`--plugin <class>` or the `Custom` wizard option), or from a JSON file.
-- `update` Update an existing connector's configuration (shows a before→after diff).
+- `update [name]` Update an existing connector's configuration (shows a before→after diff).
 - `delete [name...]` Delete one or more connectors (multi-select, names, or `--all`).
 - `list` List connectors and interactively show one config.
 - `pause [name...]` Pause one or more connectors and their tasks.
@@ -113,7 +113,7 @@ kkon task <subcommand> [flags]
 Subcommands:
 - `list` List task IDs for a connector.
 - `get` Get status for a single task.
-- `restart` Restart a single task (with confirmation).
+- `restart` Restart a single task (with confirmation; `--yes, -y` skips it).
 
 Flags:
 - `--connector, -c` Connector name (optional; prompts if missing).
@@ -126,4 +126,6 @@ kkon task list --connector my-connector
 kkon task get --connector my-connector --id 0
 
 kkon task restart --connector my-connector --id 1
+
+kkon task restart --connector my-connector --id 1 --yes --output json
 ```

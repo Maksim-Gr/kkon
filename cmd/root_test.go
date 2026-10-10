@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/Maksim-Gr/kkon/cmd/connector"
+	"github.com/Maksim-Gr/kkon/cmd/task"
 	"github.com/Maksim-Gr/kkon/internal/util"
 
 	"github.com/stretchr/testify/assert"
@@ -222,4 +223,87 @@ func TestExecute_HealthCheckUsesTraceFromStatus(t *testing.T) {
 	out := captureStdout(t, func() { require.NoError(t, execute("connector", "health-check")) })
 	assert.Contains(t, out, "Task 0: FAILED")
 	assert.Zero(t, taskRequests, "trace should come from the status response")
+}
+
+// resetFlags restores flags that tests set on the shared global command tree.
+func resetFlags(t *testing.T) {
+	t.Helper()
+	t.Cleanup(func() {
+		restart, _, err := RootCmd.Find([]string{"task", "restart"})
+		require.NoError(t, err)
+		require.NoError(t, RootCmd.PersistentFlags().Set("output", "text"))
+		require.NoError(t, RootCmd.PersistentFlags().Set("dry-run", "false"))
+		require.NoError(t, task.Cmd.PersistentFlags().Set("connector", ""))
+		require.NoError(t, task.Cmd.PersistentFlags().Set("id", "-1"))
+		require.NoError(t, restart.Flags().Set("yes", "false"))
+	})
+}
+
+// taskServer serves a connector with one task (id 0) and records mutating requests.
+func taskServer(t *testing.T) *[]string {
+	t.Helper()
+	var mutations []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method != http.MethodGet:
+			mutations = append(mutations, r.Method+" "+r.URL.Path)
+			w.WriteHeader(http.StatusNoContent)
+		case strings.HasSuffix(r.URL.Path, "/tasks"):
+			_, _ = w.Write([]byte(`[{"id": {"connector": "alpha", "task": 0}, "config": {}}]`))
+		case strings.HasSuffix(r.URL.Path, "/status"):
+			_, _ = w.Write([]byte(`{"id": 0, "state": "RUNNING", "worker_id": "w1"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	setTestConfig(t, srv.URL)
+	return &mutations
+}
+
+func TestExecute_TaskRestartYesJSON(t *testing.T) {
+	mutations := taskServer(t)
+	resetFlags(t)
+
+	out := captureStdout(t, func() {
+		require.NoError(t, execute("task", "restart", "--connector", "alpha", "--id", "0", "--yes", "--output", "json"))
+	})
+	assert.JSONEq(t, `{"name": "alpha", "task": 0, "action": "restart", "result": "ok"}`, out)
+	assert.Equal(t, []string{"POST /connectors/alpha/tasks/0/restart"}, *mutations)
+}
+
+func TestExecute_TaskRestartJSONRequiresYes(t *testing.T) {
+	mutations := taskServer(t)
+	resetFlags(t)
+
+	err := execute("task", "restart", "--connector", "alpha", "--id", "0", "--output", "json")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--output json requires non-interactive usage")
+	assert.Empty(t, *mutations)
+}
+
+func TestExecute_TaskGetIgnoresDryRun(t *testing.T) {
+	taskServer(t)
+	resetFlags(t)
+
+	out := captureStdout(t, func() {
+		require.NoError(t, execute("task", "get", "--connector", "alpha", "--id", "0", "--dry-run", "--output", "json"))
+	})
+	assert.Contains(t, out, `"state": "RUNNING"`)
+}
+
+func TestExecute_UpdateAcceptsName(t *testing.T) {
+	var paths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error_code": 404, "message": "Connector missing not found"}`))
+	}))
+	t.Cleanup(srv.Close)
+	setTestConfig(t, srv.URL)
+
+	// With a name, update goes straight to that connector's config (no list/prompt).
+	err := execute("connector", "update", "missing")
+	require.Error(t, err)
+	assert.Equal(t, []string{"/connectors/missing/config"}, paths)
 }

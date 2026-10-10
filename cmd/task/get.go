@@ -35,15 +35,10 @@ connector and task when --connector or --id are not given.`,
 			return err
 		}
 
-		isDryRun := util.IsDryRun(cmd)
-		id, err := util.ResolveTaskID(cmd.Context(), client, name, taskID, isDryRun)
+		// Read-only: --dry-run is ignored, like the other read commands.
+		id, err := util.ResolveTaskID(cmd.Context(), client, name, taskID, false)
 		if err != nil {
 			return err
-		}
-
-		if isDryRun {
-			color.Yellow("[dry-run] Would get status for %s\n", util.FormatTaskRef(name, id))
-			return nil
 		}
 
 		status, err := client.GetConnectorTaskStatus(cmd.Context(), name, id)
