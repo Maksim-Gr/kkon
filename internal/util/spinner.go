@@ -8,8 +8,12 @@ import (
 
 // StartSpinner starts a simple terminal spinner with msg and returns a stop function.
 // Call the returned function to stop the spinner and clear the line.
-// Frames are written to stderr so piped stdout (e.g. --output json) stays clean.
+// Frames are written to stderr so piped stdout (e.g. --output json) stays clean,
+// and nothing is drawn when stderr is not a terminal (CI logs, redirects).
 func StartSpinner(msg string) func() {
+	if !IsTerminal(os.Stderr) {
+		return func() {}
+	}
 	done := make(chan struct{})
 	stopped := make(chan struct{})
 	go func() {
