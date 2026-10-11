@@ -133,7 +133,6 @@ kkon connector restart [name...]         # Restart connectors (and their tasks)
 kkon connector restart [name] --only-failed     # Restart only FAILED connector and tasks
 kkon connector restart --all --yes       # Restart every connector, skipping confirmation
 kkon connector health-check              # Show connector and task statuses with error traces
-kkon connector health-check --fail-on-unhealthy  # Exit 1 if anything is not RUNNING (CI/monitoring)
 kkon connector plugins                   # List connector plugins installed on the cluster
 kkon connector plugins --type sink       # Filter plugins by type (source or sink)
 kkon connector backup                    # Back up all connector configs to JSON

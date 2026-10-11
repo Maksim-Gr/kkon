@@ -58,7 +58,6 @@ Flags:
 - `kkon connector restart --include-tasks` Also restart the connector's tasks (default `true`).
 - `kkon connector restart --only-failed` Restart only FAILED connector and tasks (default `false`).
 - `kkon connector restart --yes, -y` Skip the confirmation prompt (for scripting).
-- `kkon connector health-check --fail-on-unhealthy` Exit `1` if any listed connector or task is not RUNNING (for CI/monitoring).
 - `kkon connector backup --dir` Directory to save backup files (default `./backup`).
 - `kkon connector restore --dir` Directory to look for backup files (default `./backup`).
 - `kkon connector restore --yes, -y` Overwrite existing connectors without confirmation.
@@ -94,8 +93,6 @@ kkon connector pause --all --yes
 kkon connector restart connector-a connector-b --yes
 
 kkon connector health-check
-
-kkon connector health-check --fail-on-unhealthy
 
 kkon connector plugins --type source
 

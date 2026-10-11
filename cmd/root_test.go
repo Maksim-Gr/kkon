@@ -187,22 +187,6 @@ func TestExecute_HealthCheckSortedOutput(t *testing.T) {
 	}
 }
 
-func TestExecute_HealthCheckFailOnUnhealthy(t *testing.T) {
-	statusServer(t, map[string]string{"alpha": "RUNNING", "bravo": "FAILED"})
-	t.Cleanup(func() { require.NoError(t, connector.HealthCheckCmd.Flags().Set("fail-on-unhealthy", "false")) })
-
-	captureStdout(t, func() { require.NoError(t, execute("connector", "health-check")) })
-
-	var err error
-	captureStdout(t, func() { err = execute("connector", "health-check", "--fail-on-unhealthy") })
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "1 of 2 connector(s) unhealthy")
-
-	captureStdout(t, func() { err = execute("connector", "health-check", "--fail-on-unhealthy", "--state", "RUNNING") })
-	require.NoError(t, err)
-	require.NoError(t, connector.HealthCheckCmd.Flags().Set("state", ""))
-}
-
 func TestExecute_HealthCheckUsesTraceFromStatus(t *testing.T) {
 	var taskRequests int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

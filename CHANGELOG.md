@@ -10,8 +10,6 @@
   file. With `KKON_CONNECT_URL` set, no config file is required and the
   first-run setup is skipped. `kkon config show` prints the effective config
   and lists active overrides.
-- `connector health-check --fail-on-unhealthy` exits `1` when any listed
-  connector or task is not RUNNING, for CI and monitoring.
 - `task restart` accepts `--yes/-y` and `-o json` (with `--connector`, `--id`
   and `--yes`); `connector update` accepts the connector name as an argument.
 
