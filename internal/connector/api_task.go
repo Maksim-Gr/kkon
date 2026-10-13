@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 )
 
 // TaskRef represents an entry returned by GET /connectors/{name}/tasks.
@@ -25,14 +26,14 @@ type TaskStatus struct {
 // GET /connectors/{name}/tasks returns [{id:{connector,task}, config:{}}],
 // so we unwrap the nested id before returning flat TaskRefs.
 func (c *Client) ListConnectorTasks(ctx context.Context, connectorName string) ([]TaskRef, error) {
-	path := fmt.Sprintf("/connectors/%s/tasks", connectorName)
+	path := fmt.Sprintf("/connectors/%s/tasks", url.PathEscape(connectorName))
 
 	body, status, err := c.doRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
 	}
 	if !isSuccess(status) {
-		return nil, fmt.Errorf("failed to list tasks for %s: %s", connectorName, string(body))
+		return nil, fmt.Errorf("failed to list tasks for %s: %s", connectorName, errorMessage(body))
 	}
 
 	var raw []struct {
@@ -50,14 +51,14 @@ func (c *Client) ListConnectorTasks(ctx context.Context, connectorName string) (
 
 // GetConnectorTaskStatus fetches the status of a single task.
 func (c *Client) GetConnectorTaskStatus(ctx context.Context, connectorName string, taskID int) (TaskStatus, error) {
-	path := fmt.Sprintf("/connectors/%s/tasks/%d/status", connectorName, taskID)
+	path := fmt.Sprintf("/connectors/%s/tasks/%d/status", url.PathEscape(connectorName), taskID)
 
 	body, status, err := c.doRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return TaskStatus{}, err
 	}
 	if !isSuccess(status) {
-		return TaskStatus{}, fmt.Errorf("failed to get task status for %s task %d: %s", connectorName, taskID, string(body))
+		return TaskStatus{}, fmt.Errorf("failed to get task status for %s task %d: %s", connectorName, taskID, errorMessage(body))
 	}
 
 	var ts TaskStatus
@@ -69,14 +70,14 @@ func (c *Client) GetConnectorTaskStatus(ctx context.Context, connectorName strin
 
 // RestartConnectorTask restarts a single task.
 func (c *Client) RestartConnectorTask(ctx context.Context, connectorName string, taskID int) error {
-	path := fmt.Sprintf("/connectors/%s/tasks/%d/restart", connectorName, taskID)
+	path := fmt.Sprintf("/connectors/%s/tasks/%d/restart", url.PathEscape(connectorName), taskID)
 
 	body, status, err := c.doRequest(ctx, http.MethodPost, path, nil)
 	if err != nil {
 		return err
 	}
 	if !isSuccess(status) {
-		return fmt.Errorf("failed to restart %s task %d: %s", connectorName, taskID, string(body))
+		return fmt.Errorf("failed to restart %s task %d: %s", connectorName, taskID, errorMessage(body))
 	}
 	return nil
 }

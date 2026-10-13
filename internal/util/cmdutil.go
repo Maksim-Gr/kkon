@@ -2,8 +2,10 @@ package util
 
 import (
 	"errors"
+	"os"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 // ErrCanceled signals that the user canceled an interactive prompt.
@@ -30,4 +32,9 @@ func rootFlagValue(cmd *cobra.Command, name string) string {
 		return ""
 	}
 	return f.Value.String()
+}
+
+// IsTerminal reports whether f is attached to a terminal.
+func IsTerminal(f *os.File) bool {
+	return term.IsTerminal(int(f.Fd()))
 }

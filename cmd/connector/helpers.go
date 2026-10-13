@@ -21,9 +21,9 @@ import (
 // configMapFromFile extracts a connector config map from a connector JSON file,
 // accepting either the wrapped {"name":..,"config":{..}} form or a flat config
 // map. For the wrapped form the top-level name is folded into the config, since
-// the validate endpoint requires it. It returns nil if neither form parses, in
-// which case validation is skipped.
-func configMapFromFile(b []byte) map[string]string {
+// the validate endpoint requires it. wrapped reports which form was found. It
+// returns a nil map if neither form parses, in which case validation is skipped.
+func configMapFromFile(b []byte) (cfg map[string]string, wrapped bool) {
 	var wrapper struct {
 		Name   string            `json:"name"`
 		Config map[string]string `json:"config"`
@@ -33,15 +33,15 @@ func configMapFromFile(b []byte) map[string]string {
 			cfg := make(map[string]string, len(wrapper.Config)+1)
 			maps.Copy(cfg, wrapper.Config)
 			cfg["name"] = wrapper.Name
-			return cfg
+			return cfg, true
 		}
-		return wrapper.Config
+		return wrapper.Config, true
 	}
 	var flat map[string]string
 	if err := json.Unmarshal(b, &flat); err == nil {
-		return flat
+		return flat, false
 	}
-	return nil
+	return nil, false
 }
 
 // argOrEmpty returns the first positional arg, or "" if none was provided.
@@ -458,13 +458,17 @@ func verifyConnectorOrRevert(ctx context.Context, client *connector.Client, name
 
 // waitForConnectorRunning polls the connector's status up to attempts times,
 // sleeping delay between tries, and returns once it is healthy or attempts are
-// exhausted. The returned bool reports whether it became healthy; the returned
-// status is the last one observed (zero-valued, with empty Name, if every poll
-// errored).
+// exhausted or ctx is canceled. The returned bool reports whether it became
+// healthy; the returned status is the last one observed (zero-valued, with
+// empty Name, if every poll errored).
 func waitForConnectorRunning(ctx context.Context, client *connector.Client, name string, attempts int, delay time.Duration) (connector.Status, bool) {
 	var status connector.Status
 	for i := 0; i < attempts; i++ {
-		time.Sleep(delay)
+		select {
+		case <-ctx.Done():
+			return status, false
+		case <-time.After(delay):
+		}
 		s, err := client.GetConnectorStatus(ctx, name)
 		if err != nil {
 			continue
@@ -478,26 +482,23 @@ func waitForConnectorRunning(ctx context.Context, client *connector.Client, name
 }
 
 // printConnectorStatus prints the state of a connector and its tasks.
-// For FAILED tasks it fetches and shows the first 3 lines of the error trace.
-func printConnectorStatus(ctx context.Context, client *connector.Client, name string, status connector.Status) {
+// For FAILED tasks it shows the first 3 lines of the error trace.
+func printConnectorStatus(name string, status connector.Status) {
 	fmt.Printf("  %s  %s\n", name, util.ColorState(status.Connector.State))
 	for _, t := range status.Tasks {
 		fmt.Printf("    Task %d: %s\n", t.ID, util.ColorState(t.State))
-		if t.State == "FAILED" {
-			ts, err := client.GetConnectorTaskStatus(ctx, name, t.ID)
-			if err == nil && ts.Trace != "" {
-				lines := strings.Split(strings.TrimRight(ts.Trace, "\n"), "\n")
-				shown := lines
-				if len(lines) > 3 {
-					shown = lines[:3]
-				}
-				for _, line := range shown {
-					color.Yellow("      %s\n", line)
-				}
-				if len(lines) > 3 {
-					color.Yellow("      ...\n")
-					fmt.Printf("      To see full trace run: kkon task get --connector %s --id %d\n", name, t.ID)
-				}
+		if t.State == "FAILED" && t.Trace != "" {
+			lines := strings.Split(strings.TrimRight(t.Trace, "\n"), "\n")
+			shown := lines
+			if len(lines) > 3 {
+				shown = lines[:3]
+			}
+			for _, line := range shown {
+				color.Yellow("      %s\n", line)
+			}
+			if len(lines) > 3 {
+				color.Yellow("      ...\n")
+				fmt.Printf("      To see full trace run: kkon task get --connector %s --id %d\n", name, t.ID)
 			}
 		}
 	}

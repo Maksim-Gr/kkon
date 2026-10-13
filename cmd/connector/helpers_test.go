@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/Maksim-Gr/kkon/internal/connector"
 
@@ -170,7 +171,13 @@ func TestFieldsToPrompt(t *testing.T) {
 func TestIsSecretField(t *testing.T) {
 	assert.True(t, isSecretField("connection.password"))
 	assert.True(t, isSecretField("aws.secret.access.key"))
+	assert.True(t, isSecretField("sasl.jaas.config"))
+	assert.True(t, isSecretField("datadog.api.key"))
+	assert.True(t, isSecretField("auth.token"))
+	assert.True(t, isSecretField("gcs.credentials.json"))
 	assert.False(t, isSecretField("connection.url"))
+	assert.False(t, isSecretField("key.converter"))
+	assert.False(t, isSecretField("aws.access.key.id"))
 }
 
 func TestRunBulk_AllSucceed(t *testing.T) {
@@ -257,4 +264,17 @@ func TestWaitForConnectorRunning_AllErrors(t *testing.T) {
 	status, healthy := waitForConnectorRunning(context.Background(), client, "alpha", 3, 0)
 	assert.False(t, healthy)
 	assert.Empty(t, status.Name)
+}
+
+func TestWaitForConnectorRunning_StopsOnCancel(t *testing.T) {
+	client := newStatusClient(t, func(_ int) (int, string) {
+		return http.StatusOK, `{"name":"alpha","connector":{"state":"RESTARTING"},"tasks":[]}`
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	start := time.Now()
+	_, healthy := waitForConnectorRunning(ctx, client, "alpha", 5, time.Second)
+	assert.False(t, healthy)
+	assert.Less(t, time.Since(start), 500*time.Millisecond)
 }

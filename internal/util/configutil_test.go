@@ -80,3 +80,10 @@ func TestResolveConfigMalformedFile(t *testing.T) {
 	_, err = ResolveConfig()
 	require.Error(t, err)
 }
+
+func TestKeysFromMapSorted(t *testing.T) {
+	m := map[string]string{"topics": "", "connector.class": "", "name": "", "tasks.max": ""}
+	for range 20 {
+		assert.Equal(t, []string{"connector.class", "name", "tasks.max", "topics"}, KeysFromMap(m))
+	}
+}

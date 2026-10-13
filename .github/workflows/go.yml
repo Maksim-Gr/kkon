@@ -28,6 +28,9 @@ jobs:
       - name: Verify dependencies
         run: go mod verify
 
+      - name: Check go.mod is tidy
+        run: go mod tidy -diff
+
       - name: Run gofmt
         run: |
           gofmt -w .
@@ -39,7 +42,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.13.2
+          version: v2.14.0
 
       - name: Run tests
         run: go test ./... -v

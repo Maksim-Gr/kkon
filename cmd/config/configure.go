@@ -40,14 +40,15 @@ first time kkon needs a connection.`,
 			return fmt.Errorf("failed to determine config path: %w", err)
 		}
 
-		currentURL := ""
-		currentUser := ""
-		currentPass := ""
-
-		if loaded, err := util.LoadConfig(); err == nil {
-			currentURL = loaded.KafkaConnect.URL
-			currentUser = loaded.KafkaConnect.Username
-			currentPass = loaded.KafkaConnect.Password
+		// Start from the saved config so the Schema Registry section survives the save.
+		cfg, loadErr := util.LoadConfig()
+		if loadErr != nil {
+			cfg = util.RestAPIConfig{}
+		}
+		currentURL := cfg.KafkaConnect.URL
+		currentUser := cfg.KafkaConnect.Username
+		currentPass := cfg.KafkaConnect.Password
+		if loadErr == nil {
 			color.Yellow("Current Kafka Connect URL: %s", currentURL)
 		}
 
@@ -121,12 +122,10 @@ first time kkon needs a connection.`,
 			}
 		}
 
-		cfg := util.RestAPIConfig{
-			KafkaConnect: util.KafkaConnectConfig{
-				URL:      inputURL,
-				Username: inputUser,
-				Password: inputPass,
-			},
+		cfg.KafkaConnect = util.KafkaConnectConfig{
+			URL:      inputURL,
+			Username: inputUser,
+			Password: inputPass,
 		}
 
 		if dryRun {

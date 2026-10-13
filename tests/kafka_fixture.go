@@ -49,6 +49,10 @@ type KafkaConnectTestFixture struct {
 // KafkaConnectFixture starts a full Kafka + Kafka Connect stack and returns a test fixture.
 func KafkaConnectFixture(t *testing.T) *KafkaConnectTestFixture {
 	t.Helper()
+	if testing.Short() {
+		t.Skip("skipping Kafka Connect integration test in -short mode")
+	}
+	testcontainers.SkipIfProviderIsNotHealthy(t)
 	ctx := context.Background()
 
 	nw, err := network.New(ctx)
@@ -64,8 +68,8 @@ func KafkaConnectFixture(t *testing.T) *KafkaConnectTestFixture {
 			"ZOOKEEPER_CLIENT_PORT": "2181",
 			"ZOOKEEPER_TICK_TIME":   "2000",
 		},
-		WaitingFor: wait.ForListeningPort("2181/tcp").WithStartupTimeout(30 * time.Second),
-		Name:       "zookeeper",
+		WaitingFor:     wait.ForListeningPort("2181/tcp").WithStartupTimeout(30 * time.Second),
+		NetworkAliases: map[string][]string{nw.Name: {"zookeeper"}},
 	}
 	zooC, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: zooReq,
@@ -87,8 +91,8 @@ func KafkaConnectFixture(t *testing.T) *KafkaConnectTestFixture {
 			"KAFKA_LISTENERS":                        "PLAINTEXT://0.0.0.0:9092",
 			"KAFKA_LOG_DIRS":                         "/tmp/kafka-logs",
 		},
-		WaitingFor: wait.ForListeningPort("9092/tcp").WithStartupTimeout(90 * time.Second),
-		Name:       "kafka",
+		WaitingFor:     wait.ForListeningPort("9092/tcp").WithStartupTimeout(90 * time.Second),
+		NetworkAliases: map[string][]string{nw.Name: {"kafka"}},
 	}
 	kafkaC, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: kafkaReq,
@@ -120,8 +124,8 @@ func KafkaConnectFixture(t *testing.T) *KafkaConnectTestFixture {
 			"CONNECT_PLUGIN_PATH":                       "/usr/share/java,/usr/share/confluent-hub-components",
 			"CONNECT_REST_ADVERTISED_HOST_NAME":         "localhost",
 		},
-		WaitingFor: wait.ForHTTP("/").WithPort("8083/tcp").WithStartupTimeout(120 * time.Second),
-		Name:       "kafkaconnect",
+		WaitingFor:     wait.ForHTTP("/").WithPort("8083/tcp").WithStartupTimeout(120 * time.Second),
+		NetworkAliases: map[string][]string{nw.Name: {"kafkaconnect"}},
 	}
 	connectC, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: connectReq,

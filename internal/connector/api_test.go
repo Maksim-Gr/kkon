@@ -123,3 +123,56 @@ func TestValidateConnectorConfig(t *testing.T) {
 	assert.Equal(t, http.MethodPut, rec.method)
 	assert.Equal(t, "/connector-plugins/io.example.X/config/validate", rec.path)
 }
+
+func TestConnectorNamesAreEscapedInPaths(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		{"orders#v2", "/connectors/orders%23v2/status"},
+		{"a?b", "/connectors/a%3Fb/status"},
+		{"50%off", "/connectors/50%25off/status"},
+		{"team/orders", "/connectors/team%2Forders/status"},
+		{"my conn", "/connectors/my%20conn/status"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, rec := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte(`{"name": "x", "connector": {"state": "RUNNING"}}`))
+			})
+
+			_, err := client.GetConnectorStatus(context.Background(), tt.name)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, rec.path)
+		})
+	}
+}
+
+func TestDeleteConnectorEscapesName(t *testing.T) {
+	client, rec := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	require.NoError(t, client.DeleteConnector(context.Background(), "orders#v2"))
+	assert.Equal(t, "/connectors/orders%23v2", rec.path)
+}
+
+func TestRestartConnectorTaskEscapesName(t *testing.T) {
+	client, rec := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	require.NoError(t, client.RestartConnectorTask(context.Background(), "a?b", 1))
+	assert.Equal(t, "/connectors/a%3Fb/tasks/1/restart", rec.path)
+}
+
+func TestErrorUsesStructuredMessage(t *testing.T) {
+	client, _ := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error_code":404,"message":"Connector alpha not found"}`))
+	})
+
+	_, err := client.GetConnectorStatus(context.Background(), "alpha")
+	require.Error(t, err)
+	assert.Equal(t, "failed to get status for alpha: Connector alpha not found", err.Error())
+}

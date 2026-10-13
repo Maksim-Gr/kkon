@@ -3,6 +3,7 @@ package connector
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -67,4 +68,14 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body []byte
 
 func isSuccess(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
+}
+
+// errorMessage returns the "message" of a Kafka Connect error body, falling
+// back to the raw body when it isn't the structured {"error_code","message"} form.
+func errorMessage(body []byte) string {
+	var e ErrorResponse
+	if err := json.Unmarshal(body, &e); err == nil && e.Message != "" {
+		return e.Message
+	}
+	return strings.TrimSpace(string(body))
 }

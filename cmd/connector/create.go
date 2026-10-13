@@ -123,7 +123,20 @@ func submitConnectorFromFile(cmd *cobra.Command, path string) error {
 		return err
 	}
 
-	if configMap := configMapFromFile(b); configMap != nil {
+	configMap, wrapped := configMapFromFile(b)
+	payload := b
+	// POST /connectors only accepts {"name","config"}; wrap a flat config map.
+	if configMap != nil && !wrapped {
+		if configMap["name"] == "" {
+			return fmt.Errorf("connector config in %s has no \"name\"", path)
+		}
+		meta.Name = configMap["name"]
+		if payload, err = json.Marshal(map[string]any{"name": meta.Name, "config": configMap}); err != nil {
+			return fmt.Errorf("failed to encode config: %w", err)
+		}
+	}
+
+	if configMap != nil {
 		if jsonMode {
 			if err := validateConfigStrict(ctx, client, configMap); err != nil {
 				return err
@@ -146,7 +159,7 @@ func submitConnectorFromFile(cmd *cobra.Command, path string) error {
 	if !jsonMode {
 		color.Green("\n Submitting connector from file: %s ...\n", path)
 	}
-	if _, err := client.SubmitConnector(ctx, string(b)); err != nil {
+	if _, err := client.SubmitConnector(ctx, string(payload)); err != nil {
 		return fmt.Errorf("failed to submit connector: %w", err)
 	}
 
@@ -534,9 +547,16 @@ func anyToString(v any) string {
 	return fmt.Sprintf("%v", v)
 }
 
+var secretFieldMarkers = []string{"password", "secret", "token", "credential", "jaas.config", "api.key", "apikey", "private.key"}
+
 // isSecretField reports whether a config key looks like a credential, so the
 // wizard can mask the input.
 func isSecretField(name string) bool {
 	n := strings.ToLower(name)
-	return strings.Contains(n, "password") || strings.Contains(n, "secret")
+	for _, m := range secretFieldMarkers {
+		if strings.Contains(n, m) {
+			return true
+		}
+	}
+	return false
 }

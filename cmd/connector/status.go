@@ -3,6 +3,8 @@ package connector
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/Maksim-Gr/kkon/internal/util"
@@ -55,8 +57,8 @@ and --output json for machine-readable output.`,
 		}
 
 		color.Cyan("Connector Statuses:")
-		for name, status := range connectorStatuses {
-			printConnectorStatus(cmd.Context(), client, name, status)
+		for _, name := range slices.Sorted(maps.Keys(connectorStatuses)) {
+			printConnectorStatus(name, connectorStatuses[name])
 		}
 		return nil
 	},

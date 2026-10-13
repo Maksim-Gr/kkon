@@ -15,7 +15,7 @@ func (c *Client) ListConnectorPlugins(ctx context.Context) ([]Plugin, error) {
 		return nil, err
 	}
 	if !isSuccess(status) {
-		return nil, fmt.Errorf("failed to list connector plugins: %s", string(body))
+		return nil, fmt.Errorf("failed to list connector plugins: %s", errorMessage(body))
 	}
 
 	var plugins []Plugin
