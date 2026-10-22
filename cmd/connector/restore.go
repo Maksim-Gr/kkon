@@ -8,9 +8,9 @@ import (
 	"sort"
 
 	"github.com/Maksim-Gr/kkon/internal/connector"
+	"github.com/Maksim-Gr/kkon/internal/prompt"
 	"github.com/Maksim-Gr/kkon/internal/util"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
@@ -80,11 +80,11 @@ connectors are only overwritten after confirmation (skip it with --yes).`,
 		toRestore := make(map[string]map[string]string, len(configs))
 		for _, name := range sortedKeys(configs) {
 			if existing[name] && !restoreYes {
-				var overwrite bool
-				if err := survey.AskOne(&survey.Confirm{
-					Message: "Connector " + name + " already exists. Overwrite?",
-					Default: false,
-				}, &overwrite); err != nil || !overwrite {
+				overwrite, err := prompt.Confirm("Connector "+name+" already exists. Overwrite?", false)
+				if err != nil {
+					return err
+				}
+				if !overwrite {
 					color.Yellow("Skipping %s\n", name)
 					continue
 				}
@@ -137,12 +137,14 @@ func resolveBackupFile(file, dir string) (string, error) {
 	sort.Sort(sort.Reverse(sort.StringSlice(entries)))
 
 	const cancelOpt = "← Cancel"
-	var selected string
-	prompt := &survey.Select{Message: "Pick a backup file:", Options: append(entries, cancelOpt)}
-	if err := survey.AskOne(prompt, &selected); err != nil || selected == cancelOpt {
+	i, err := prompt.Select("Pick a backup file:", append(entries, cancelOpt), prompt.Options{})
+	if err != nil {
+		return "", err
+	}
+	if i == len(entries) {
 		return "", util.ErrCanceled
 	}
-	return selected, nil
+	return entries[i], nil
 }
 
 // loadBackupFile reads and parses a backup file into name→config maps.

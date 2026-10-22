@@ -7,10 +7,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/Maksim-Gr/kkon/internal/connector"
+	"github.com/Maksim-Gr/kkon/internal/prompt/prompttest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -349,4 +351,46 @@ func TestConfigMapFromFile(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestEditConnectorConfig_RevertsWhenNotRunning(t *testing.T) {
+	var mu sync.Mutex
+	var puts []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/connectors/alpha/config":
+			_, _ = w.Write([]byte(`{"name": "alpha", "tasks.max": "1"}`))
+		case r.Method == http.MethodPut && r.URL.Path == "/connectors/alpha/config":
+			b, _ := io.ReadAll(r.Body)
+			mu.Lock()
+			puts = append(puts, string(b))
+			mu.Unlock()
+			_, _ = w.Write([]byte(`{}`))
+		case r.URL.Path == "/connectors/alpha/status":
+			_, _ = w.Write([]byte(`{"name": "alpha", "connector": {"state": "FAILED"}, "tasks": []}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	orig := verifyPollDelay
+	verifyPollDelay = time.Millisecond
+	t.Cleanup(func() { verifyPollDelay = orig })
+
+	prompttest.New(t,
+		prompttest.Select("Which field", "tasks.max"),
+		prompttest.Input("New value for tasks.max", "3"),
+		prompttest.Confirm("Change another field", false),
+		prompttest.Confirm("Apply this config to alpha", true),
+		prompttest.Confirm("Revert to previous config", true),
+	)
+
+	captureStdout(t, func() {
+		require.NoError(t, editConnectorConfig(context.Background(), connector.NewClient(srv.URL), "alpha", false))
+	})
+
+	require.Len(t, puts, 2)
+	assert.JSONEq(t, `{"name": "alpha", "tasks.max": "3"}`, puts[0])
+	assert.JSONEq(t, `{"name": "alpha", "tasks.max": "1"}`, puts[1])
 }

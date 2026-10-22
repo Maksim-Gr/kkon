@@ -7,8 +7,8 @@ import (
 	"strconv"
 
 	"github.com/Maksim-Gr/kkon/internal/connector"
+	"github.com/Maksim-Gr/kkon/internal/prompt"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 )
 
@@ -46,12 +46,14 @@ func ResolveConnectorName(ctx context.Context, client *connector.Client, flagVal
 	}
 
 	const cancelOpt = "← Cancel"
-	var name string
-	prompt := &survey.Select{Message: "Pick connector:", Options: append(connectors, cancelOpt)}
-	if err := survey.AskOne(prompt, &name); err != nil || name == cancelOpt {
+	i, err := prompt.Select("Pick connector:", append(connectors, cancelOpt), prompt.Options{})
+	if err != nil {
+		return "", err
+	}
+	if i == len(connectors) {
 		return "", ErrCanceled
 	}
-	return name, nil
+	return connectors[i], nil
 }
 
 // ResolveConnectorNames returns connector names from:
@@ -83,10 +85,13 @@ func ResolveConnectorNames(ctx context.Context, client *connector.Client, args [
 		return connectors, nil
 	}
 
-	var selected []string
-	prompt := &survey.MultiSelect{Message: "Pick connectors:", Options: connectors}
-	if err := survey.AskOne(prompt, &selected, survey.WithValidator(survey.MinItems(1))); err != nil {
-		return nil, ErrCanceled
+	idx, err := prompt.MultiSelect("Pick connectors:", connectors)
+	if err != nil {
+		return nil, err
+	}
+	selected := make([]string, len(idx))
+	for i, j := range idx {
+		selected[i] = connectors[j]
 	}
 	return selected, nil
 }
@@ -135,17 +140,14 @@ func ResolveTaskID(ctx context.Context, client *connector.Client, connectorName 
 	}
 	options = append(options, cancelOpt)
 
-	var selected string
-	prompt := &survey.Select{Message: "Pick task id:", Options: options}
-	if err := survey.AskOne(prompt, &selected); err != nil || selected == cancelOpt {
+	i, err := prompt.Select("Pick task id:", options, prompt.Options{})
+	if err != nil {
+		return -1, err
+	}
+	if i == len(tasks) {
 		return -1, ErrCanceled
 	}
-
-	id, err := strconv.Atoi(selected)
-	if err != nil {
-		return -1, fmt.Errorf("invalid task id: %w", err)
-	}
-	return id, nil
+	return tasks[i].Task, nil
 }
 
 // FormatTaskRef returns a human-readable "connector task N" string.

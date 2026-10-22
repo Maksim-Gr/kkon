@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/Maksim-Gr/kkon/internal/connector"
+	"github.com/Maksim-Gr/kkon/internal/prompt"
 	"github.com/Maksim-Gr/kkon/internal/util"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
@@ -53,17 +53,10 @@ first time kkon needs a connection.`,
 		}
 
 		// --- URL prompt ---
-		var inputURL string
-		urlPrompt := &survey.Input{
-			Message: "Kafka Connect URL:",
+		inputURL, err := prompt.Input("Kafka Connect URL:", prompt.Options{
 			Help:    "Enter the URL of your Kafka Connect REST API (e.g. http://localhost:8083)",
 			Default: currentURL,
-		}
-
-		err = survey.AskOne(urlPrompt, &inputURL, survey.WithValidator(
-			func(ans interface{}) error {
-				s := ans.(string)
-
+			Validate: func(s string) error {
 				if s == currentURL {
 					return nil
 				}
@@ -75,12 +68,9 @@ first time kkon needs a connection.`,
 				}
 				return util.ValidateURL(s)
 			},
-		))
+		})
 		if err != nil {
-			if util.IsSurveyInterrupt(err) {
-				return util.ErrCanceled
-			}
-			return fmt.Errorf("failed to read URL: %w", err)
+			return err
 		}
 
 		if inputURL == "" {
@@ -90,17 +80,9 @@ first time kkon needs a connection.`,
 			inputURL = "http://" + inputURL
 		}
 
-		var inputUser string
-		userPrompt := &survey.Input{
-			Message: "Kafka Connect username (leave empty for no auth):",
-			Default: currentUser,
-		}
-
-		if err := survey.AskOne(userPrompt, &inputUser); err != nil {
-			if util.IsSurveyInterrupt(err) {
-				return util.ErrCanceled
-			}
-			return fmt.Errorf("failed to read username: %w", err)
+		inputUser, err := prompt.Input("Kafka Connect username (leave empty for no auth):", prompt.Options{Default: currentUser})
+		if err != nil {
+			return err
 		}
 
 		// Ask for password only when a username is being set for the first time
@@ -110,15 +92,10 @@ first time kkon needs a connection.`,
 		if inputUser == "" {
 			inputPass = ""
 		} else if inputUser != currentUser {
-			passPrompt := &survey.Password{
-				Message: "Kafka Connect password:",
-				Help:    "Password will be stored in your local config file",
-			}
-			if err := survey.AskOne(passPrompt, &inputPass); err != nil {
-				if util.IsSurveyInterrupt(err) {
-					return util.ErrCanceled
-				}
-				return fmt.Errorf("failed to read password: %w", err)
+			if inputPass, err = prompt.Secret("Kafka Connect password:", prompt.Options{
+				Help: "Password will be stored in your local config file",
+			}); err != nil {
+				return err
 			}
 		}
 
@@ -151,12 +128,11 @@ first time kkon needs a connection.`,
 			color.Green("Authentication disabled")
 		}
 
-		var testConn bool
-		testPrompt := &survey.Confirm{
-			Message: fmt.Sprintf("Test connection to %s?", inputURL),
-			Default: true,
+		testConn, err := prompt.Confirm(fmt.Sprintf("Test connection to %s?", inputURL), true)
+		if err != nil {
+			return err
 		}
-		if err := survey.AskOne(testPrompt, &testConn); err == nil && testConn {
+		if testConn {
 			stop := util.StartSpinner("Testing connection...")
 			testClient := connector.NewClient(inputURL)
 			if inputUser != "" {
@@ -184,40 +160,26 @@ func configureSchemaRegistry(dryRun bool) error {
 	}
 	currentURL := cfg.SchemaRegistry.URL
 
-	var configureSR bool
-	srPrompt := &survey.Confirm{
-		Message: "Configure Schema Registry too?",
-		Default: currentURL != "",
-	}
-	if err := survey.AskOne(srPrompt, &configureSR); err != nil {
-		if util.IsSurveyInterrupt(err) {
-			return util.ErrCanceled
-		}
-		return fmt.Errorf("failed to read answer: %w", err)
+	configureSR, err := prompt.Confirm("Configure Schema Registry too?", currentURL != "")
+	if err != nil {
+		return err
 	}
 	if !configureSR {
 		return nil
 	}
 
-	var inputURL string
-	urlPrompt := &survey.Input{
-		Message: "Schema Registry URL:",
+	inputURL, err := prompt.Input("Schema Registry URL:", prompt.Options{
 		Help:    "Enter the URL of your Confluent Schema Registry (e.g. http://localhost:8081)",
 		Default: currentURL,
-	}
-	if err := survey.AskOne(urlPrompt, &inputURL, survey.WithValidator(
-		func(ans interface{}) error {
-			s := ans.(string)
+		Validate: func(s string) error {
 			if s == "" {
 				return errors.New("URL cannot be empty")
 			}
 			return util.ValidateURL(s)
 		},
-	)); err != nil {
-		if util.IsSurveyInterrupt(err) {
-			return util.ErrCanceled
-		}
-		return fmt.Errorf("failed to read URL: %w", err)
+	})
+	if err != nil {
+		return err
 	}
 	if !strings.HasPrefix(inputURL, "http://") && !strings.HasPrefix(inputURL, "https://") {
 		color.Yellow("No scheme specified — assuming http://")

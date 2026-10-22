@@ -4,13 +4,15 @@ import (
 	"errors"
 	"os"
 
+	"github.com/Maksim-Gr/kkon/internal/prompt"
+
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
 
 // ErrCanceled signals that the user canceled an interactive prompt.
 // Execute prints "Canceled" once and exits 0.
-var ErrCanceled = errors.New("canceled")
+var ErrCanceled = prompt.ErrCanceled
 
 // ErrNothingToDo signals that there was no work to perform (e.g. no
 // connectors found). The message is printed at the source; Execute exits 0.

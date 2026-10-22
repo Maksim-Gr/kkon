@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Maksim-Gr/kkon/internal/prompt"
 	"github.com/Maksim-Gr/kkon/internal/util"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
@@ -63,12 +63,11 @@ given.`,
 		}
 
 		if !restartYes {
-			var confirm bool
-			confirmPrompt := &survey.Confirm{
-				Message: fmt.Sprintf("Restart %s?", util.FormatTaskRef(name, id)),
-				Default: true,
+			confirm, err := prompt.Confirm(fmt.Sprintf("Restart %s?", util.FormatTaskRef(name, id)), true)
+			if err != nil {
+				return err
 			}
-			if err := survey.AskOne(confirmPrompt, &confirm); err != nil || !confirm {
+			if !confirm {
 				return util.ErrCanceled
 			}
 		}

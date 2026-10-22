@@ -13,7 +13,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2/terminal"
 	"gopkg.in/yaml.v3"
 )
 
@@ -156,9 +155,4 @@ func withDefaultScheme(u string) string {
 		return u
 	}
 	return "http://" + u
-}
-
-// IsSurveyInterrupt reports whether err is a survey terminal interrupt (Ctrl+C).
-func IsSurveyInterrupt(err error) bool {
-	return errors.Is(err, terminal.InterruptErr)
 }
