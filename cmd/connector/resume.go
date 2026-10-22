@@ -3,6 +3,7 @@ package connector
 import (
 	"context"
 
+	"github.com/Maksim-Gr/kkon/cmd/action"
 	"github.com/Maksim-Gr/kkon/internal/connector"
 
 	"github.com/spf13/cobra"
@@ -24,13 +25,12 @@ is asked only when targeting more than one connector (skip it with --yes).`,
   # Resume all connectors without confirmation
   kkon connector resume --all --yes`,
 	Args: cobra.ArbitraryArgs,
-	RunE: lifecycleRunE(lifecycleSpec{
-		verb:           "resume",
-		successFmt:     "Resume requested for %s\n",
-		confirmDefault: true,
-		op: func(ctx context.Context, client *connector.Client, name string) error {
-			return client.ResumeConnector(ctx, name)
-		},
+	RunE: lifecycleRunE(action.Spec{
+		Verb:           "resume",
+		SuccessFmt:     "Resume requested for %s\n",
+		ConfirmDefault: true,
+	}, func(ctx context.Context, client *connector.Client, name string) error {
+		return client.ResumeConnector(ctx, name)
 	}),
 }
 

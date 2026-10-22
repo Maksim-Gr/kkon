@@ -1,13 +1,14 @@
 package connector
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 
-	"github.com/Maksim-Gr/kkon/internal/connector"
+	"github.com/Maksim-Gr/kkon/cmd/action"
 	"github.com/Maksim-Gr/kkon/internal/prompt"
 	"github.com/Maksim-Gr/kkon/internal/util"
 
@@ -40,9 +41,8 @@ connectors are only overwritten after confirmation (skip it with --yes).`,
   kkon connector restore ./backup/config_20260710_120000.json --dry-run`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		jsonMode := util.IsJSONOutput(cmd)
-		if jsonMode && (argOrEmpty(args) == "" || !restoreYes) {
-			return errNonInteractiveJSON
+		if util.IsJSONOutput(cmd) && (argOrEmpty(args) == "" || !restoreYes) {
+			return action.ErrNonInteractiveJSON
 		}
 
 		file, err := resolveBackupFile(argOrEmpty(args), restoreDir)
@@ -64,56 +64,32 @@ connectors are only overwritten after confirmation (skip it with --yes).`,
 			return err
 		}
 
-		if util.IsDryRun(cmd) {
-			printDryRunPreview(jsonMode, "restore", sortedKeys(configs), fmt.Sprintf(" from %s", file))
-			return nil
-		}
-
 		// Detect connectors that already exist so we can confirm overwrites.
 		existing := map[string]bool{}
-		if names, err := client.ListConnectors(cmd.Context()); err == nil {
-			for _, n := range names {
-				existing[n] = true
-			}
-		}
-
-		toRestore := make(map[string]map[string]string, len(configs))
-		for _, name := range sortedKeys(configs) {
-			if existing[name] && !restoreYes {
-				overwrite, err := prompt.Confirm("Connector "+name+" already exists. Overwrite?", false)
-				if err != nil {
-					return err
-				}
-				if !overwrite {
-					color.Yellow("Skipping %s\n", name)
-					continue
+		if !util.IsDryRun(cmd) && !restoreYes {
+			if names, err := client.ListConnectors(cmd.Context()); err == nil {
+				for _, n := range names {
+					existing[n] = true
 				}
 			}
-			toRestore[name] = configs[name]
 		}
 
-		if len(toRestore) == 0 {
-			color.Yellow("Nothing to restore\n")
-			return util.ErrNothingToDo
-		}
-
-		stop := util.StartSpinner("Restoring connectors...")
-		results := connector.RestoreConnectorConfigs(cmd.Context(), client, toRestore)
-		stop()
-
-		names := make([]string, len(results))
-		errs := make([]string, len(results))
-		for i, r := range results {
-			names[i] = r.Name
-			errs[i] = r.Error
-		}
-		b, _ := json.MarshalIndent(results, "", "  ")
-		failed := printResultLines(jsonMode, b, names, errs)
-
-		if failed > 0 {
-			return fmt.Errorf("%d of %d connector(s) failed to restore", failed, len(results))
-		}
-		return nil
+		// PUT /connectors/{name}/config upserts, so restore both re-creates
+		// missing connectors and overwrites existing ones.
+		return action.Run(cmd, action.Spec{
+			Verb:       "restore",
+			Batch:      true,
+			DryRunNote: func() string { return " from " + file },
+			ConfirmEach: func(t action.Target) (bool, error) {
+				if !existing[t.Connector] {
+					return true, nil
+				}
+				return prompt.Confirm("Connector "+t.Connector+" already exists. Overwrite?", false)
+			},
+			Op: func(ctx context.Context, t action.Target) error {
+				return client.UpdateConnectorConfig(ctx, t.Connector, configs[t.Connector])
+			},
+		}, action.Connectors(sortedKeys(configs)))
 	},
 }
 

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Maksim-Gr/kkon/cmd/action"
 	"github.com/Maksim-Gr/kkon/internal/connector"
 	"github.com/Maksim-Gr/kkon/internal/prompt"
 	"github.com/Maksim-Gr/kkon/internal/util"
@@ -83,105 +84,14 @@ func argOrEmpty(args []string) string {
 	return ""
 }
 
-// errNonInteractiveJSON is returned when --output json is combined with a
-// command invocation that would need to prompt.
-var errNonInteractiveJSON = errors.New("--output json requires non-interactive usage (pass the connector name and --yes)")
-
-// printActionJSON emits a single action result object to stdout for --output json mode.
-func printActionJSON(name, action string) {
-	b, _ := json.Marshal(map[string]string{"name": name, "action": action, "result": "ok"})
-	fmt.Println(string(b))
-}
-
-// printDryRunPreview reports what a lifecycle command would do to names,
-// without doing it. In json mode it emits the same {"name","action","result"}
-// shape as printActionJSON with result "dry-run" (a single object for one
-// name, an indented array for multiple), so scripts get consistent output
-// whether an action ran or was only previewed. In text mode it prints the
-// existing single-line or bulleted preview, with note appended for extra
-// context (e.g. restart's includeTasks/onlyFailed flags).
-func printDryRunPreview(jsonMode bool, verb string, names []string, note string) {
-	if jsonMode {
-		type dryRunResult struct {
-			Name   string `json:"name"`
-			Action string `json:"action"`
-			Result string `json:"result"`
-		}
-		results := make([]dryRunResult, len(names))
-		for i, n := range names {
-			results[i] = dryRunResult{Name: n, Action: verb, Result: "dry-run"}
-		}
-		if len(results) == 1 {
-			b, _ := json.Marshal(results[0])
-			fmt.Println(string(b))
-			return
-		}
-		b, _ := json.MarshalIndent(results, "", "  ")
-		fmt.Println(string(b))
-		return
-	}
-
-	if len(names) == 1 {
-		color.Yellow("[dry-run] Would %s connector %s%s\n", verb, names[0], note)
-		return
-	}
-	color.Yellow("[dry-run] Would %s %d connector(s)%s:\n", verb, len(names), note)
-	for _, n := range names {
-		color.Yellow("  - %s\n", n)
-	}
-}
-
-// printResultLines reports the outcome of a batch operation: one ✓/✗ line per
-// (name, err) pair plus a "N ok, M failed" summary in text mode, or the given
-// pre-marshaled JSON in json mode. names and errs must be parallel slices
-// (errs[i] == "" means names[i] succeeded). Returns the number of failures.
-func printResultLines(jsonMode bool, jsonBytes []byte, names []string, errs []string) int {
-	failed := 0
-	for _, e := range errs {
-		if e != "" {
-			failed++
-		}
-	}
-
-	if jsonMode {
-		fmt.Println(string(jsonBytes))
-		return failed
-	}
-
-	for i, name := range names {
-		if errs[i] != "" {
-			color.Red("  ✗ %s: %s\n", name, errs[i])
-		} else {
-			color.Green("  ✓ %s\n", name)
-		}
-	}
-	fmt.Printf("%d ok, %d failed\n", len(names)-failed, failed)
-	return failed
-}
-
-// lifecycleSpec describes a connector lifecycle command (pause, resume,
-// restart, delete) run through lifecycleRunE.
-type lifecycleSpec struct {
-	verb           string // e.g. "pause"; also used in messages and json output
-	successFmt     string // printed with the connector name for a single target
-	confirmSingle  bool   // ask for confirmation even for a single connector
-	confirmDefault bool   // default answer of the confirmation prompt
-	dryRunNote     func() string
-	op             func(ctx context.Context, client *connector.Client, name string) error
-}
-
-// lifecycleRunE returns a RunE shared by the lifecycle commands. Targets come
-// from positional args, --all, or an interactive multi-select; a single target
-// keeps the original one-connector behavior, while multiple targets are
-// processed via runBulk with a per-connector summary.
-func lifecycleRunE(spec lifecycleSpec) func(cmd *cobra.Command, args []string) error {
+// lifecycleRunE returns a RunE shared by the lifecycle commands (pause,
+// resume, restart, delete). Targets come from positional args, --all, or an
+// interactive multi-select; action.Run does the rest, with op applied to each.
+func lifecycleRunE(spec action.Spec, op func(ctx context.Context, client *connector.Client, name string) error) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		jsonMode := util.IsJSONOutput(cmd)
 		all, _ := cmd.Flags().GetBool("all")
-		yes, _ := cmd.Flags().GetBool("yes")
-
-		if jsonMode && len(args) == 0 && !all {
-			return errNonInteractiveJSON
+		if util.IsJSONOutput(cmd) && len(args) == 0 && !all {
+			return action.ErrNonInteractiveJSON
 		}
 
 		client, err := util.NewKafkaConnectClient()
@@ -194,84 +104,11 @@ func lifecycleRunE(spec lifecycleSpec) func(cmd *cobra.Command, args []string) e
 			return err
 		}
 
-		if util.IsDryRun(cmd) {
-			note := ""
-			if spec.dryRunNote != nil {
-				note = spec.dryRunNote()
-			}
-			printDryRunPreview(jsonMode, spec.verb, names, note)
-			return nil
+		spec.Op = func(ctx context.Context, t action.Target) error {
+			return op(ctx, client, t.Connector)
 		}
-
-		if !yes && (spec.confirmSingle || len(names) > 1) {
-			if jsonMode {
-				return errNonInteractiveJSON
-			}
-			titleVerb := strings.ToUpper(spec.verb[:1]) + spec.verb[1:]
-			message := fmt.Sprintf("%s connector %s?", titleVerb, names[0])
-			if len(names) > 1 {
-				message = fmt.Sprintf("%s %d connectors (%s)?", titleVerb, len(names), strings.Join(names, ", "))
-			}
-			confirm, err := prompt.Confirm(message, spec.confirmDefault)
-			if err != nil {
-				return err
-			}
-			if !confirm {
-				return util.ErrCanceled
-			}
-		}
-
-		if len(names) == 1 {
-			name := names[0]
-			if err := spec.op(cmd.Context(), client, name); err != nil {
-				return fmt.Errorf("failed to %s %s: %w", spec.verb, name, err)
-			}
-			if jsonMode {
-				printActionJSON(name, spec.verb)
-				return nil
-			}
-			color.Green(spec.successFmt, name)
-			return nil
-		}
-
-		return runBulk(cmd.Context(), jsonMode, spec.verb, names, func(ctx context.Context, name string) error {
-			return spec.op(ctx, client, name)
-		})
+		return action.Run(cmd, spec, action.Connectors(names))
 	}
-}
-
-// runBulk applies op to each name, continuing past individual failures. It
-// prints a per-connector ✓/✗ summary (or a JSON results array in json mode)
-// and returns an error when any operation failed.
-func runBulk(ctx context.Context, jsonMode bool, verb string, names []string, op func(ctx context.Context, name string) error) error {
-	type bulkResult struct {
-		Name   string `json:"name"`
-		Action string `json:"action"`
-		Error  string `json:"error,omitempty"`
-	}
-
-	results := make([]bulkResult, 0, len(names))
-	errs := make([]string, 0, len(names))
-	stop := util.StartSpinner(fmt.Sprintf("Running %s on %d connector(s)...", verb, len(names)))
-	for _, name := range names {
-		r := bulkResult{Name: name, Action: verb}
-		if err := ctx.Err(); err != nil {
-			r.Error = err.Error()
-		} else if err := op(ctx, name); err != nil {
-			r.Error = err.Error()
-		}
-		results = append(results, r)
-		errs = append(errs, r.Error)
-	}
-	stop()
-
-	b, _ := json.MarshalIndent(results, "", "  ")
-	failed := printResultLines(jsonMode, b, names, errs)
-
-	if failed > 0 {
-		return fmt.Errorf("failed to %s %d of %d connector(s)", verb, failed, len(names))
-	}
-	return nil
 }
 
 // checkConfig runs server-side validation on a connector config and returns

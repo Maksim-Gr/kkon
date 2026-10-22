@@ -40,6 +40,10 @@ _Avoid_: lint, verification
 
 ## Operating connectors
 
+**Target**:
+The connector, or the single task of a connector, that a command acts on.
+_Avoid_: item, resource
+
 **Lifecycle command**:
 A command that changes a running connector without changing its config: pause, resume, restart or delete.
 _Avoid_: action, operation

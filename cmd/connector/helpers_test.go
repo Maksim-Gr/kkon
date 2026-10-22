@@ -2,7 +2,6 @@ package connector
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -180,82 +179,6 @@ func TestIsSecretField(t *testing.T) {
 	assert.False(t, isSecretField("connection.url"))
 	assert.False(t, isSecretField("key.converter"))
 	assert.False(t, isSecretField("aws.access.key.id"))
-}
-
-func TestRunBulk_AllSucceed(t *testing.T) {
-	var attempted []string
-	err := runBulk(context.Background(), false, "pause", []string{"a", "b"}, func(_ context.Context, name string) error {
-		attempted = append(attempted, name)
-		return nil
-	})
-	require.NoError(t, err)
-	assert.Equal(t, []string{"a", "b"}, attempted)
-}
-
-func TestRunBulk_ContinuesPastFailure(t *testing.T) {
-	var attempted []string
-	err := runBulk(context.Background(), false, "pause", []string{"a", "bad", "c"}, func(_ context.Context, name string) error {
-		attempted = append(attempted, name)
-		if name == "bad" {
-			return assert.AnError
-		}
-		return nil
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to pause 1 of 3 connector(s)")
-	assert.Equal(t, []string{"a", "bad", "c"}, attempted, "all names must still be attempted")
-}
-
-func TestRunBulk_CanceledContextSkipsRemaining(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	var attempted []string
-	err := runBulk(ctx, false, "pause", []string{"a", "b"}, func(_ context.Context, name string) error {
-		attempted = append(attempted, name)
-		return nil
-	})
-	require.Error(t, err)
-	assert.Empty(t, attempted, "canceled context must not invoke the operation")
-}
-
-func TestPrintDryRunPreview_JSONMode_SingleName(t *testing.T) {
-	out := captureStdout(t, func() {
-		printDryRunPreview(true, "pause", []string{"alpha"}, "")
-	})
-
-	var result map[string]string
-	require.NoError(t, json.Unmarshal([]byte(out), &result), "dry-run json output must be valid JSON: %q", out)
-	assert.Equal(t, "alpha", result["name"])
-	assert.Equal(t, "pause", result["action"])
-	assert.Equal(t, "dry-run", result["result"])
-}
-
-func TestPrintDryRunPreview_JSONMode_MultipleNames(t *testing.T) {
-	out := captureStdout(t, func() {
-		printDryRunPreview(true, "restart", []string{"alpha", "beta"}, "")
-	})
-
-	var results []map[string]string
-	require.NoError(t, json.Unmarshal([]byte(out), &results), "dry-run json output must be valid JSON array: %q", out)
-	require.Len(t, results, 2)
-	assert.Equal(t, "alpha", results[0]["name"])
-	assert.Equal(t, "beta", results[1]["name"])
-	for _, r := range results {
-		assert.Equal(t, "restart", r["action"])
-		assert.Equal(t, "dry-run", r["result"])
-	}
-}
-
-func TestPrintResultLines_ReturnsFailureCount(t *testing.T) {
-	failed := printResultLines(false, nil, []string{"a", "b", "c"}, []string{"", "boom", ""})
-	assert.Equal(t, 1, failed)
-}
-
-func TestPrintResultLines_JSONModePrintsGivenBytes(t *testing.T) {
-	out := captureStdout(t, func() {
-		printResultLines(true, []byte(`{"custom":"payload"}`), nil, nil)
-	})
-	assert.JSONEq(t, `{"custom":"payload"}`, out)
 }
 
 func TestWaitForConnectorRunning_AllErrors(t *testing.T) {

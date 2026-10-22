@@ -3,6 +3,7 @@ package connector
 import (
 	"context"
 
+	"github.com/Maksim-Gr/kkon/cmd/action"
 	"github.com/Maksim-Gr/kkon/internal/connector"
 
 	"github.com/spf13/cobra"
@@ -30,13 +31,12 @@ for confirmation unless --yes is given.`,
   # Preview deletions without executing them
   kkon connector delete --all --dry-run`,
 	Args: cobra.ArbitraryArgs,
-	RunE: lifecycleRunE(lifecycleSpec{
-		verb:          "delete",
-		successFmt:    "Connector %s deleted\n",
-		confirmSingle: true,
-		op: func(ctx context.Context, client *connector.Client, name string) error {
-			return client.DeleteConnector(ctx, name)
-		},
+	RunE: lifecycleRunE(action.Spec{
+		Verb:          "delete",
+		SuccessFmt:    "Connector %s deleted\n",
+		ConfirmSingle: true,
+	}, func(ctx context.Context, client *connector.Client, name string) error {
+		return client.DeleteConnector(ctx, name)
 	}),
 }
 

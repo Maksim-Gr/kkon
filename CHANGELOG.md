@@ -28,6 +28,8 @@
   connection test and the create wizard's key-format question. Other prompt
   failures (e.g. a broken terminal) now exit 1 instead of reporting "Canceled".
 - Selection lists show 10 entries per page.
+- `restore` reports failures as "failed to restore N of M connector(s)", like
+  the other bulk commands.
 
 ### Fixed
 - Connector names containing `#`, `?`, `%` or `/` are now URL-escaped;
