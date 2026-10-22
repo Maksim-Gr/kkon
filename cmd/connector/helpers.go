@@ -1,11 +1,11 @@
 package connector
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"sort"
 	"strings"
 	"time"
@@ -20,28 +20,59 @@ import (
 
 // configMapFromFile extracts a connector config map from a connector JSON file,
 // accepting either the wrapped {"name":..,"config":{..}} form or a flat config
-// map. For the wrapped form the top-level name is folded into the config, since
-// the validate endpoint requires it. wrapped reports which form was found. It
-// returns a nil map if neither form parses, in which case validation is skipped.
-func configMapFromFile(b []byte) (cfg map[string]string, wrapped bool) {
-	var wrapper struct {
-		Name   string            `json:"name"`
-		Config map[string]string `json:"config"`
+// map. For the wrapped form the top-level name is folded into the config.
+// Numbers, booleans and nulls become the strings Kafka Connect stores; nested
+// values, other top-level fields and a missing name are errors.
+func configMapFromFile(b []byte) (map[string]string, error) {
+	var top map[string]json.RawMessage
+	if err := json.Unmarshal(b, &top); err != nil {
+		return nil, errors.New("is not a JSON object")
 	}
-	if err := json.Unmarshal(b, &wrapper); err == nil && len(wrapper.Config) > 0 {
-		if wrapper.Name != "" && wrapper.Config["name"] == "" {
-			cfg := make(map[string]string, len(wrapper.Config)+1)
-			maps.Copy(cfg, wrapper.Config)
-			cfg["name"] = wrapper.Name
-			return cfg, true
+
+	var name string
+	rawConfig := top
+	if raw, wrapped := top["config"]; wrapped {
+		for k := range top {
+			if k != "name" && k != "config" {
+				return nil, fmt.Errorf("has unsupported top-level field %q (only \"name\" and \"config\" are allowed)", k)
+			}
 		}
-		return wrapper.Config, true
+		rawConfig = nil
+		if err := json.Unmarshal(raw, &rawConfig); err != nil || rawConfig == nil {
+			return nil, errors.New(`has a "config" that is not a JSON object`)
+		}
+		if n, ok := top["name"]; ok {
+			if err := json.Unmarshal(n, &name); err != nil {
+				return nil, errors.New(`has a "name" that is not a string`)
+			}
+		}
 	}
-	var flat map[string]string
-	if err := json.Unmarshal(b, &flat); err == nil {
-		return flat, false
+
+	cfg := make(map[string]string, len(rawConfig)+1)
+	for k, raw := range rawConfig {
+		d := json.NewDecoder(bytes.NewReader(raw))
+		d.UseNumber()
+		var v any
+		if err := d.Decode(&v); err != nil {
+			return nil, fmt.Errorf("has an invalid value for %q", k)
+		}
+		switch v.(type) {
+		case map[string]any, []any:
+			return nil, fmt.Errorf("has a nested value for %q (config values must be strings, numbers or booleans)", k)
+		}
+		cfg[k] = anyToString(v)
 	}
-	return nil, false
+
+	switch {
+	case name != "" && cfg["name"] == "":
+		cfg["name"] = name
+	case name != "" && cfg["name"] != name:
+		return nil, fmt.Errorf("has name %q but config name %q", name, cfg["name"])
+	}
+	if cfg["name"] == "" {
+		return nil, errors.New(`has no "name"`)
+	}
+	return cfg, nil
 }
 
 // argOrEmpty returns the first positional arg, or "" if none was provided.
@@ -243,31 +274,43 @@ func runBulk(ctx context.Context, jsonMode bool, verb string, names []string, op
 	return nil
 }
 
-// validateConfigOrConfirm runs server-side validation on a connector config.
-// It returns true if the caller should proceed with submission. When the
-// connector.class is unknown or validation can't run, it proceeds without
-// blocking. When validation reports errors, it prints them and asks the user
-// whether to submit anyway.
-func validateConfigOrConfirm(ctx context.Context, client *connector.Client, cfg map[string]string) bool {
+// checkConfig runs server-side validation on a connector config and returns
+// the server's error count with one "field: message" line per problem. It
+// reports no problems when connector.class is unset, and returns err only when
+// validation itself could not run; both cases let submission proceed.
+func checkConfig(ctx context.Context, client *connector.Client, cfg map[string]string) (errorCount int, problems []string, err error) {
 	class := cfg["connector.class"]
 	if class == "" {
-		return true
+		return 0, nil, nil
 	}
 
 	res, err := client.ValidateConnectorConfig(ctx, class, cfg)
 	if err != nil {
+		return 0, nil, err
+	}
+	for _, c := range res.Configs {
+		for _, e := range c.Value.Errors {
+			problems = append(problems, c.Value.Name+": "+e)
+		}
+	}
+	return res.ErrorCount, problems, nil
+}
+
+// validateConfigOrConfirm reports checkConfig's problems and asks whether to
+// submit anyway. It returns true if the caller should proceed.
+func validateConfigOrConfirm(ctx context.Context, client *connector.Client, cfg map[string]string) bool {
+	errorCount, problems, err := checkConfig(ctx, client, cfg)
+	if err != nil {
 		color.Yellow("Could not validate config: %v\n", err)
 		return true
 	}
-	if res.ErrorCount == 0 {
+	if errorCount == 0 {
 		return true
 	}
 
-	color.Red("\nValidation found %d error(s):\n", res.ErrorCount)
-	for _, c := range res.Configs {
-		for _, e := range c.Value.Errors {
-			color.Red("  %s: %s\n", c.Value.Name, e)
-		}
+	color.Red("\nValidation found %d error(s):\n", errorCount)
+	for _, p := range problems {
+		color.Red("  %s\n", p)
 	}
 
 	var proceed bool
@@ -280,28 +323,18 @@ func validateConfigOrConfirm(ctx context.Context, client *connector.Client, cfg 
 	return proceed
 }
 
-// validateConfigStrict runs server-side validation and returns an error listing
-// the failing fields. It is the non-interactive counterpart of
-// validateConfigOrConfirm for contexts where prompting is not possible
-// (--output json). Like the interactive variant, it proceeds when the
-// connector.class is unknown or validation itself can't run.
+// validateConfigStrict returns checkConfig's problems as an error. It is the
+// non-interactive counterpart of validateConfigOrConfirm for --output json.
 func validateConfigStrict(ctx context.Context, client *connector.Client, cfg map[string]string) error {
-	class := cfg["connector.class"]
-	if class == "" {
-		return nil
-	}
-
-	res, err := client.ValidateConnectorConfig(ctx, class, cfg)
-	if err != nil || res.ErrorCount == 0 {
+	errorCount, problems, err := checkConfig(ctx, client, cfg)
+	if err != nil || errorCount == 0 {
 		return nil
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "validation found %d error(s):", res.ErrorCount)
-	for _, c := range res.Configs {
-		for _, e := range c.Value.Errors {
-			fmt.Fprintf(&b, "\n  %s: %s", c.Value.Name, e)
-		}
+	fmt.Fprintf(&b, "validation found %d error(s):", errorCount)
+	for _, p := range problems {
+		fmt.Fprintf(&b, "\n  %s", p)
 	}
 	return errors.New(b.String())
 }
@@ -313,7 +346,7 @@ func validateConfigStrict(ctx context.Context, client *connector.Client, cfg map
 // User cancels return util.ErrCanceled; with dryRun the diff is shown but the
 // change is not applied.
 func editConnectorConfig(ctx context.Context, client *connector.Client, selected string, dryRun bool) error {
-	connectorConfig, err := client.GetConnectorConfigJSON(ctx, selected)
+	connectorConfig, err := client.GetConnectorConfig(ctx, selected)
 	if err != nil {
 		return fmt.Errorf("failed to get connector config: %w", err)
 	}

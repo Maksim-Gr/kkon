@@ -327,3 +327,44 @@ func TestExecute_CreateFromFlatFileRequiresName(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `has no "name"`)
 }
+
+func TestExecute_CreateFromWrappedFileStringifiesValues(t *testing.T) {
+	var posted []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/config/validate"):
+			_, _ = w.Write([]byte(`{"name": "x", "error_count": 0, "configs": []}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/connectors":
+			posted, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"name": "wrapped", "config": {}, "tasks": []}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	setTestConfig(t, srv.URL)
+	resetFlags(t)
+	t.Cleanup(func() { require.NoError(t, connector.CreateCmd.Flags().Set("file", "")) })
+
+	file := filepath.Join(t.TempDir(), "wrapped.json")
+	require.NoError(t, os.WriteFile(file, []byte(`{"name": "wrapped", "config": {"connector.class": "com.example.Source", "tasks.max": 2}}`), 0o600))
+
+	captureStdout(t, func() {
+		require.NoError(t, execute("connector", "create", "--file", file, "--output", "json"))
+	})
+	assert.JSONEq(t, `{"name": "wrapped", "config": {"name": "wrapped", "connector.class": "com.example.Source", "tasks.max": "2"}}`, string(posted))
+}
+
+func TestExecute_CreateFromFileRejectsUnknownTopLevelField(t *testing.T) {
+	setTestConfig(t, "http://127.0.0.1:1")
+	resetFlags(t)
+	t.Cleanup(func() { require.NoError(t, connector.CreateCmd.Flags().Set("file", "")) })
+
+	file := filepath.Join(t.TempDir(), "extra.json")
+	require.NoError(t, os.WriteFile(file, []byte(`{"name": "x", "config": {}, "initial_state": "PAUSED"}`), 0o600))
+
+	err := execute("connector", "create", "--file", file, "--output", "json")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `unsupported top-level field "initial_state"`)
+}
