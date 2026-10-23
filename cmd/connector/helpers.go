@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/Maksim-Gr/kkon/internal/connector"
+	"github.com/Maksim-Gr/kkon/internal/prompt"
 	"github.com/Maksim-Gr/kkon/internal/util"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
@@ -212,11 +212,11 @@ func lifecycleRunE(spec lifecycleSpec) func(cmd *cobra.Command, args []string) e
 			if len(names) > 1 {
 				message = fmt.Sprintf("%s %d connectors (%s)?", titleVerb, len(names), strings.Join(names, ", "))
 			}
-			var confirm bool
-			if err := survey.AskOne(&survey.Confirm{
-				Message: message,
-				Default: spec.confirmDefault,
-			}, &confirm); err != nil || !confirm {
+			confirm, err := prompt.Confirm(message, spec.confirmDefault)
+			if err != nil {
+				return err
+			}
+			if !confirm {
 				return util.ErrCanceled
 			}
 		}
@@ -313,14 +313,8 @@ func validateConfigOrConfirm(ctx context.Context, client *connector.Client, cfg 
 		color.Red("  %s\n", p)
 	}
 
-	var proceed bool
-	if err := survey.AskOne(&survey.Confirm{
-		Message: "Submit anyway?",
-		Default: false,
-	}, &proceed); err != nil {
-		return false
-	}
-	return proceed
+	proceed, err := prompt.Confirm("Submit anyway?", false)
+	return err == nil && proceed
 }
 
 // validateConfigStrict returns checkConfig's problems as an error. It is the
@@ -371,28 +365,21 @@ func editConnectorConfig(ctx context.Context, client *connector.Client, selected
 		}
 		sort.Strings(fields)
 
-		var fieldToChange string
-		if err := survey.AskOne(&survey.Select{
-			Message: "Which field do you want to change?",
-			Options: fields,
-		}, &fieldToChange); err != nil {
-			return util.ErrCanceled
+		i, err := prompt.Select("Which field do you want to change?", fields, prompt.Options{})
+		if err != nil {
+			return err
 		}
+		fieldToChange := fields[i]
 
-		var newValue string
-		if err := survey.AskOne(&survey.Input{
-			Message: fmt.Sprintf("New value for %s (current: %v):", fieldToChange, connectorConfig[fieldToChange]),
-		}, &newValue); err != nil {
-			return util.ErrCanceled
+		newValue, err := prompt.Input(fmt.Sprintf("New value for %s (current: %v):", fieldToChange, connectorConfig[fieldToChange]), prompt.Options{})
+		if err != nil {
+			return err
 		}
 		connectorConfig[fieldToChange] = newValue
 
-		var more bool
-		if err := survey.AskOne(&survey.Confirm{
-			Message: "Change another field?",
-			Default: false,
-		}, &more); err != nil {
-			return util.ErrCanceled
+		more, err := prompt.Confirm("Change another field?", false)
+		if err != nil {
+			return err
 		}
 		if !more {
 			break
@@ -429,11 +416,11 @@ func editConnectorConfig(ctx context.Context, client *connector.Client, selected
 		return nil
 	}
 
-	var confirm bool
-	if err := survey.AskOne(&survey.Confirm{
-		Message: "Apply this config to " + selected + "?",
-		Default: true,
-	}, &confirm); err != nil || !confirm {
+	confirm, err := prompt.Confirm("Apply this config to "+selected+"?", true)
+	if err != nil {
+		return err
+	}
+	if !confirm {
 		return util.ErrCanceled
 	}
 
@@ -450,12 +437,15 @@ func editConnectorConfig(ctx context.Context, client *connector.Client, selected
 	return nil
 }
 
+// verifyPollDelay is the wait between status polls after a config change.
+var verifyPollDelay = 2 * time.Second
+
 // verifyConnectorOrRevert polls the connector's status after a config change.
 // Updating a config restarts the connector and its tasks, so this waits for it
 // to settle and reports whether it is RUNNING. If it is not healthy, it offers
 // to revert to the previous config.
 func verifyConnectorOrRevert(ctx context.Context, client *connector.Client, name string, original map[string]string) {
-	status, healthy := waitForConnectorRunning(ctx, client, name, 5, 2*time.Second)
+	status, healthy := waitForConnectorRunning(ctx, client, name, 5, verifyPollDelay)
 
 	if healthy {
 		color.Green("Connector %s is up and running: %s\n", name, util.ColorState(status.Connector.State))
@@ -473,11 +463,8 @@ func verifyConnectorOrRevert(ctx context.Context, client *connector.Client, name
 		fmt.Printf("  task %d: %s\n", t.ID, util.ColorState(t.State))
 	}
 
-	var revert bool
-	if err := survey.AskOne(&survey.Confirm{
-		Message: fmt.Sprintf("Connector %s is not RUNNING. Revert to previous config?", name),
-		Default: true,
-	}, &revert); err != nil || !revert {
+	revert, err := prompt.Confirm(fmt.Sprintf("Connector %s is not RUNNING. Revert to previous config?", name), true)
+	if err != nil || !revert {
 		color.Yellow("Keeping new config in place\n")
 		return
 	}

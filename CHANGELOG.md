@@ -23,6 +23,11 @@
   and validates them like any other file; previously such files skipped
   validation. Nested values, top-level fields other than `name` and `config`,
   and a top-level `name` that differs from the config's `name` are rejected.
+- Ctrl+C at any prompt cancels the whole command (exit 0). Previously it
+  skipped just that step at restore's overwrite prompt, `config set`'s
+  connection test and the create wizard's key-format question. Other prompt
+  failures (e.g. a broken terminal) now exit 1 instead of reporting "Canceled".
+- Selection lists show 10 entries per page.
 
 ### Fixed
 - Connector names containing `#`, `?`, `%` or `/` are now URL-escaped;

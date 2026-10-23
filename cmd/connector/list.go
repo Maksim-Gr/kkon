@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/Maksim-Gr/kkon/internal/connector"
+	"github.com/Maksim-Gr/kkon/internal/prompt"
 	"github.com/Maksim-Gr/kkon/internal/util"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
@@ -108,21 +108,23 @@ configuration. Use --config to print a named connector's config directly,
 		}
 
 		const cancelOpt = "← Cancel"
-		var selected string
-		prompt := &survey.Select{
-			Message: "Select connector:",
-			Options: append(connectors, cancelOpt),
+		i, err := prompt.Select("Select connector:", append(connectors, cancelOpt), prompt.Options{})
+		if err != nil {
+			return err
 		}
-		if err := survey.AskOne(prompt, &selected); err != nil || selected == cancelOpt {
+		if i == len(connectors) {
 			return util.ErrCanceled
 		}
+		selected := connectors[i]
 
 		const showConfigOpt, editOpt, cancelAction = "Show config", "Edit config", "← Cancel"
-		var action string
-		if err := survey.AskOne(&survey.Select{
-			Message: "Action for " + selected + ":",
-			Options: []string{showConfigOpt, editOpt, cancelAction},
-		}, &action); err != nil || action == cancelAction {
+		actions := []string{showConfigOpt, editOpt, cancelAction}
+		j, err := prompt.Select("Action for "+selected+":", actions, prompt.Options{})
+		if err != nil {
+			return err
+		}
+		action := actions[j]
+		if action == cancelAction {
 			return util.ErrCanceled
 		}
 

@@ -1,11 +1,8 @@
 package connector
 
 import (
-	"fmt"
-
+	"github.com/Maksim-Gr/kkon/internal/prompt"
 	"github.com/Maksim-Gr/kkon/internal/util"
-
-	"github.com/AlecAivazis/survey/v2"
 )
 
 func promptSchemaRegistryFormat(cfg map[string]string) error {
@@ -17,17 +14,11 @@ func promptSchemaRegistryFormat(cfg map[string]string) error {
 		"JSON Schema": "io.confluent.connect.json.JsonSchemaConverter",
 	}
 
-	var choice string
-	if err := survey.AskOne(&survey.Select{
-		Message: "Value format (Confluent Schema Registry converters)?",
-		Options: options,
-		Default: none,
-	}, &choice); err != nil {
-		if util.IsSurveyInterrupt(err) {
-			return util.ErrCanceled
-		}
-		return fmt.Errorf("prompt failed: %w", err)
+	i, err := prompt.Select("Value format (Confluent Schema Registry converters)?", options, prompt.Options{Default: none})
+	if err != nil {
+		return err
 	}
+	choice := options[i]
 	if choice == none {
 		return nil
 	}
@@ -37,26 +28,17 @@ func promptSchemaRegistryFormat(cfg map[string]string) error {
 		defaultURL = loaded.SchemaRegistry.URL
 	}
 
-	var srURL string
-	if err := survey.AskOne(&survey.Input{
-		Message: "Schema Registry URL:",
-		Default: defaultURL,
-	}, &srURL, survey.WithValidator(survey.Required)); err != nil {
-		if util.IsSurveyInterrupt(err) {
-			return util.ErrCanceled
-		}
-		return fmt.Errorf("prompt failed: %w", err)
+	srURL, err := prompt.Input("Schema Registry URL:", prompt.Options{Default: defaultURL, Validate: prompt.Required})
+	if err != nil {
+		return err
 	}
 
 	cfg["value.converter"] = converterClass[choice]
 	cfg["value.converter.schema.registry.url"] = srURL
 
-	var sameKey bool
-	if err := survey.AskOne(&survey.Confirm{
-		Message: "Use the same format for the key?",
-		Default: false,
-	}, &sameKey); err != nil && util.IsSurveyInterrupt(err) {
-		return util.ErrCanceled
+	sameKey, err := prompt.Confirm("Use the same format for the key?", false)
+	if err != nil {
+		return err
 	}
 	if sameKey {
 		cfg["key.converter"] = converterClass[choice]

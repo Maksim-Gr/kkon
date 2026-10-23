@@ -5,14 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"slices"
 	"strings"
 
 	"github.com/Maksim-Gr/kkon/internal/connector"
 	template "github.com/Maksim-Gr/kkon/internal/connector/kafka/templates"
+	"github.com/Maksim-Gr/kkon/internal/prompt"
 	"github.com/Maksim-Gr/kkon/internal/util"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
@@ -66,15 +65,13 @@ or --file to submit a JSON config non-interactively.`,
 			return configureFromPlugin(cmd, createPluginClass)
 		}
 
-		var selected string
 		color.Cyan("\n Available Kafka Connectors \n")
-		prompt := &survey.Select{
-			Message: "Pick a connector to work with:",
-			Options: append(append([]string{}, connectors...), customPluginOption),
+		options := append(append([]string{}, connectors...), customPluginOption)
+		i, err := prompt.Select("Pick a connector to work with:", options, prompt.Options{})
+		if err != nil {
+			return err
 		}
-		if err := survey.AskOne(prompt, &selected); err != nil {
-			return util.ErrCanceled
-		}
+		selected := options[i]
 		color.Green("\n You selected: %s\n", selected)
 		switch selected {
 		case "RabbitMQ Connector":
@@ -159,31 +156,16 @@ func submitConnectorFromFile(cmd *cobra.Command, path string) error {
 func configureConnector(cmd *cobra.Command, name string, connectorConfig map[string]string, required []string, passwordField string) error {
 	color.Yellow("\n  Starting configuration for %s...\n", name)
 
-	questions := make([]*survey.Question, 0, len(required))
 	for _, field := range required {
-		var prompt survey.Prompt
+		ask := prompt.Input
 		if field == passwordField {
-			prompt = &survey.Password{Message: fmt.Sprintf("Enter %s:", field)}
-		} else {
-			prompt = &survey.Input{Message: fmt.Sprintf("Enter %s:", field)}
+			ask = prompt.Secret
 		}
-		questions = append(questions, &survey.Question{
-			Name:     field,
-			Prompt:   prompt,
-			Validate: survey.Required,
-		})
-	}
-
-	answers := make(map[string]interface{})
-	if err := survey.Ask(questions, &answers); err != nil {
-		if util.IsSurveyInterrupt(err) {
-			return util.ErrCanceled
+		value, err := ask(fmt.Sprintf("Enter %s:", field), prompt.Options{Validate: prompt.Required})
+		if err != nil {
+			return err
 		}
-		return fmt.Errorf("failed to get input: %w", err)
-	}
-
-	for key, value := range answers {
-		connectorConfig[key] = fmt.Sprintf("%v", value)
+		connectorConfig[field] = value
 	}
 
 	client, err := util.NewKafkaConnectClient()
@@ -213,16 +195,9 @@ func reviewAndSubmit(cmd *cobra.Command, client *connector.Client, name string, 
 		color.Cyan("\n Current %s Configuration:\n", name)
 		fmt.Println(finalConfig)
 
-		var confirmChange bool
-		changePrompt := &survey.Confirm{
-			Message: "Do you want to change any field?",
-			Default: false,
-		}
-		if err := survey.AskOne(changePrompt, &confirmChange); err != nil {
-			if util.IsSurveyInterrupt(err) {
-				return util.ErrCanceled
-			}
-			return fmt.Errorf("prompt failed: %w", err)
+		confirmChange, err := prompt.Confirm("Do you want to change any field?", false)
+		if err != nil {
+			return err
 		}
 
 		if !confirmChange {
@@ -230,27 +205,16 @@ func reviewAndSubmit(cmd *cobra.Command, client *connector.Client, name string, 
 			break
 		}
 
-		var fieldToChange string
-		fieldPrompt := &survey.Select{
-			Message: "Which field do you want to change?",
-			Options: util.KeysFromMap(connectorConfig),
+		fields := util.KeysFromMap(connectorConfig)
+		i, err := prompt.Select("Which field do you want to change?", fields, prompt.Options{})
+		if err != nil {
+			return err
 		}
-		if err := survey.AskOne(fieldPrompt, &fieldToChange); err != nil {
-			if util.IsSurveyInterrupt(err) {
-				return util.ErrCanceled
-			}
-			return fmt.Errorf("prompt failed: %w", err)
-		}
+		fieldToChange := fields[i]
 
-		var newValue string
-		valuePrompt := &survey.Input{
-			Message: fmt.Sprintf("Enter new value for %s:", fieldToChange),
-		}
-		if err := survey.AskOne(valuePrompt, &newValue); err != nil {
-			if util.IsSurveyInterrupt(err) {
-				return util.ErrCanceled
-			}
-			return fmt.Errorf("prompt failed: %w", err)
+		newValue, err := prompt.Input(fmt.Sprintf("Enter new value for %s:", fieldToChange), prompt.Options{})
+		if err != nil {
+			return err
 		}
 
 		connectorConfig[fieldToChange] = newValue
@@ -258,9 +222,9 @@ func reviewAndSubmit(cmd *cobra.Command, client *connector.Client, name string, 
 
 	// POST /connectors requires a connector name; templates don't carry one.
 	if connectorConfig["name"] == "" {
-		var connName string
-		if err := survey.AskOne(&survey.Input{Message: "Connector name:"}, &connName, survey.WithValidator(survey.Required)); err != nil {
-			return util.ErrCanceled
+		connName, err := prompt.Input("Connector name:", prompt.Options{Validate: prompt.Required})
+		if err != nil {
+			return err
 		}
 		connectorConfig["name"] = connName
 	}
@@ -281,16 +245,9 @@ func reviewAndSubmit(cmd *cobra.Command, client *connector.Client, name string, 
 		return nil
 	}
 
-	var submitConfirm bool
-	submitPrompt := &survey.Confirm{
-		Message: "Do you want to submit this connector to Kafka Connect?",
-		Default: true,
-	}
-	if err := survey.AskOne(submitPrompt, &submitConfirm); err != nil {
-		if util.IsSurveyInterrupt(err) {
-			return util.ErrCanceled
-		}
-		return fmt.Errorf("prompt failed: %w", err)
+	submitConfirm, err := prompt.Confirm("Do you want to submit this connector to Kafka Connect?", true)
+	if err != nil {
+		return err
 	}
 
 	if !submitConfirm {
@@ -363,20 +320,19 @@ func configureFromPlugin(cmd *cobra.Command, class string) error {
 		const cancelOpt = "← Cancel"
 		options = append(options, cancelOpt)
 
-		var answer survey.OptionAnswer
-		if err := survey.AskOne(&survey.Select{
-			Message:  "Pick a connector plugin:",
-			Options:  options,
-			PageSize: 10,
-		}, &answer); err != nil || answer.Index >= len(plugins) {
+		i, err := prompt.Select("Pick a connector plugin:", options, prompt.Options{})
+		if err != nil {
+			return err
+		}
+		if i >= len(plugins) {
 			return util.ErrCanceled
 		}
-		plugin = plugins[answer.Index]
+		plugin = plugins[i]
 	}
 
-	var name string
-	if err := survey.AskOne(&survey.Input{Message: "Connector name:"}, &name, survey.WithValidator(survey.Required)); err != nil {
-		return util.ErrCanceled
+	name, err := prompt.Input("Connector name:", prompt.Options{Validate: prompt.Required})
+	if err != nil {
+		return err
 	}
 
 	cfg := map[string]string{
@@ -385,11 +341,9 @@ func configureFromPlugin(cmd *cobra.Command, class string) error {
 		"tasks.max":       "1",
 	}
 	if strings.EqualFold(plugin.Type, "sink") {
-		var topics string
-		if err := survey.AskOne(&survey.Input{
-			Message: "Topics to consume (comma-separated):",
-		}, &topics, survey.WithValidator(survey.Required)); err != nil {
-			return util.ErrCanceled
+		topics, err := prompt.Input("Topics to consume (comma-separated):", prompt.Options{Validate: prompt.Required})
+		if err != nil {
+			return err
 		}
 		cfg["topics"] = topics
 	}
@@ -484,33 +438,25 @@ func promptForField(f promptField, cfg map[string]string) error {
 	}
 
 	msg := fmt.Sprintf("Enter %s:", f.Name)
+	opts := prompt.Options{Default: f.Default, Help: f.Doc}
 	var value string
-	var prompt survey.Prompt
+	var err error
 	switch {
 	case f.Secret:
-		prompt = &survey.Password{Message: msg, Help: f.Doc}
+		value, err = prompt.Secret(msg, opts)
 	case len(f.Recommended) > 0:
-		prompt = &survey.Select{Message: msg, Options: f.Recommended, Help: f.Doc, Default: selectDefault(f.Recommended, f.Default)}
-	default:
-		prompt = &survey.Input{Message: msg, Default: f.Default, Help: f.Doc}
-	}
-	if err := survey.AskOne(prompt, &value); err != nil {
-		if util.IsSurveyInterrupt(err) {
-			return util.ErrCanceled
+		var i int
+		if i, err = prompt.Select(msg, f.Recommended, opts); err == nil {
+			value = f.Recommended[i]
 		}
-		return fmt.Errorf("prompt failed: %w", err)
+	default:
+		value, err = prompt.Input(msg, opts)
+	}
+	if err != nil {
+		return err
 	}
 	if value != "" {
 		cfg[f.Name] = value
-	}
-	return nil
-}
-
-// selectDefault returns def if it is one of the options, so survey.Select
-// does not fail on a default that is not in the list.
-func selectDefault(options []string, def string) any {
-	if slices.Contains(options, def) {
-		return def
 	}
 	return nil
 }
