@@ -2,43 +2,7 @@
 
 ---
 
-## Unreleased
-
-### Added
-- Environment variables `KKON_CONNECT_URL`, `KKON_CONNECT_USERNAME`,
-  `KKON_CONNECT_PASSWORD`, and `KKON_SCHEMA_REGISTRY_URL` override the config
-  file. With `KKON_CONNECT_URL` set, no config file is required and the
-  first-run setup is skipped. `kkon config show` prints the effective config
-  and lists active overrides.
-- `task restart` accepts `--yes/-y` and `-o json` (with `--connector`, `--id`
-  and `--yes`); `connector update` accepts the connector name as an argument.
-
-### Changed
-- API errors show Kafka Connect's `message` instead of the raw JSON body.
-- `task get` ignores `--dry-run`, like the other read-only commands.
-- The spinner is not drawn when stderr is not a terminal.
-- The plugin wizard masks more credential-like fields (tokens, API keys,
-  credentials, `sasl.jaas.config`).
-- `create --file` accepts number and boolean config values (sent as strings)
-  and validates them like any other file; previously such files skipped
-  validation. Nested values, top-level fields other than `name` and `config`,
-  and a top-level `name` that differs from the config's `name` are rejected.
-
-### Fixed
-- Connector names containing `#`, `?`, `%` or `/` are now URL-escaped;
-  previously requests were truncated or hit the wrong endpoint.
-- `config set` no longer drops the saved Schema Registry URL.
-- A malformed config file is reported instead of silently re-running setup
-  and overwriting it. Without a terminal (or with `-o json`), a missing URL
-  fails with a hint to run `kkon config set` or set `KKON_CONNECT_URL`.
-- `create --file` with a flat config map wraps it as `{"name","config"}`
-  instead of submitting it as-is, which Kafka Connect rejected.
-- `health-check` and the create wizard's field list print in sorted order.
-- Ctrl+C during the post-update health check takes effect immediately.
-
----
-
-## v2.0.0 — 2026-07-03
+## v2.0.0 — 2026-10-23
 
 ### Added
 - `connector create` can now configure a connector from **any plugin installed
@@ -53,6 +17,13 @@
   continue past individual failures, print a per-connector ✓/✗ summary, and
   exit `1` if any operation failed. `pause`/`resume` gained `--yes` (confirmation
   is only asked when targeting more than one connector).
+- Environment variables `KKON_CONNECT_URL`, `KKON_CONNECT_USERNAME`,
+  `KKON_CONNECT_PASSWORD`, and `KKON_SCHEMA_REGISTRY_URL` override the config
+  file. With `KKON_CONNECT_URL` set, no config file is required and the
+  first-run setup is skipped. `kkon config show` prints the effective config
+  and lists active overrides.
+- `task restart` accepts `--yes/-y` and `-o json` (with `--connector`, `--id`
+  and `--yes`); `connector update` accepts the connector name as an argument.
 
 ### Changed
 - `connector restore` no longer stops at the first failure: every connector in
@@ -69,6 +40,15 @@
   non-interactive) or fail fast instead of prompting.
 - `connector list --config <name> -o json` prints the raw config JSON, and
   unknown connector names are reported as errors.
+- API errors show Kafka Connect's `message` instead of the raw JSON body.
+- `task get` ignores `--dry-run`, like the other read-only commands.
+- The spinner is not drawn when stderr is not a terminal.
+- The plugin wizard masks more credential-like fields (tokens, API keys,
+  credentials, `sasl.jaas.config`).
+- `create --file` accepts number and boolean config values (sent as strings)
+  and validates them like any other file; previously such files skipped
+  validation. Nested values, top-level fields other than `name` and `config`,
+  and a top-level `name` that differs from the config's `name` are rejected.
 
 ### Fixed
 - The create wizard now submits the payload shape `POST /connectors` expects
@@ -80,6 +60,16 @@
   `resume`, `restart`, `delete`, `restore`, and `create --file`.
 - `backup` now supports `-o json`, emitting a result object on both the
   dry-run and real paths instead of silently ignoring the flag.
+- Connector names containing `#`, `?`, `%` or `/` are now URL-escaped;
+  previously requests were truncated or hit the wrong endpoint.
+- `config set` no longer drops the saved Schema Registry URL.
+- A malformed config file is reported instead of silently re-running setup
+  and overwriting it. Without a terminal (or with `-o json`), a missing URL
+  fails with a hint to run `kkon config set` or set `KKON_CONNECT_URL`.
+- `create --file` with a flat config map wraps it as `{"name","config"}`
+  instead of submitting it as-is, which Kafka Connect rejected.
+- `health-check` and the create wizard's field list print in sorted order.
+- Ctrl+C during the post-update health check takes effect immediately.
 
 ---
 
