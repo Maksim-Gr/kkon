@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Maksim-Gr/kkon/cmd/action"
 	"github.com/Maksim-Gr/kkon/internal/connector"
 
 	"github.com/spf13/cobra"
@@ -37,17 +38,16 @@ connectors and tasks; skip confirmation with --yes.`,
   # Preview without restarting anything
   kkon connector restart --all --dry-run`,
 	Args: cobra.ArbitraryArgs,
-	RunE: lifecycleRunE(lifecycleSpec{
-		verb:           "restart",
-		successFmt:     "Restart requested for %s\n",
-		confirmSingle:  true,
-		confirmDefault: true,
-		dryRunNote: func() string {
+	RunE: lifecycleRunE(action.Spec{
+		Verb:           "restart",
+		SuccessFmt:     "Restart requested for %s\n",
+		ConfirmSingle:  true,
+		ConfirmDefault: true,
+		DryRunNote: func() string {
 			return fmt.Sprintf(" (includeTasks=%t, onlyFailed=%t)", restartIncludeTasks, restartOnlyFailed)
 		},
-		op: func(ctx context.Context, client *connector.Client, name string) error {
-			return client.RestartConnector(ctx, name, restartIncludeTasks, restartOnlyFailed)
-		},
+	}, func(ctx context.Context, client *connector.Client, name string) error {
+		return client.RestartConnector(ctx, name, restartIncludeTasks, restartOnlyFailed)
 	}),
 }
 

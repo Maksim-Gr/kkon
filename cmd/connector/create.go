@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Maksim-Gr/kkon/cmd/action"
 	"github.com/Maksim-Gr/kkon/internal/connector"
 	template "github.com/Maksim-Gr/kkon/internal/connector/kafka/templates"
 	"github.com/Maksim-Gr/kkon/internal/prompt"
@@ -131,7 +132,7 @@ func submitConnectorFromFile(cmd *cobra.Command, path string) error {
 
 	if util.IsDryRun(cmd) {
 		if jsonMode {
-			printDryRunPreview(jsonMode, "create", []string{configMap["name"]}, "")
+			action.PrintDryRun(jsonMode, "create", action.Connectors([]string{configMap["name"]}), "")
 			return nil
 		}
 		color.Yellow("[dry-run] Would submit connector from file %s\n", path)
@@ -146,7 +147,7 @@ func submitConnectorFromFile(cmd *cobra.Command, path string) error {
 	}
 
 	if jsonMode {
-		printActionJSON(configMap["name"], "create")
+		action.PrintOK("create", action.Target{Connector: configMap["name"]})
 		return nil
 	}
 	color.Green("Connector submitted successfully!\n")

@@ -1,14 +1,12 @@
 package task
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
-	"fmt"
 
-	"github.com/Maksim-Gr/kkon/internal/prompt"
+	"github.com/Maksim-Gr/kkon/cmd/action"
 	"github.com/Maksim-Gr/kkon/internal/util"
 
-	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
@@ -47,51 +45,24 @@ given.`,
 			return err
 		}
 
-		isDryRun := util.IsDryRun(cmd)
-		id, err := util.ResolveTaskID(cmd.Context(), client, name, taskID, isDryRun)
+		id, err := util.ResolveTaskID(cmd.Context(), client, name, taskID, util.IsDryRun(cmd))
 		if err != nil {
 			return err
 		}
 
-		if isDryRun {
-			if jsonMode {
-				printRestartJSON(name, id, "dry-run")
-				return nil
-			}
-			color.Yellow("[dry-run] Would restart %s\n", util.FormatTaskRef(name, id))
-			return nil
-		}
-
-		if !restartYes {
-			confirm, err := prompt.Confirm(fmt.Sprintf("Restart %s?", util.FormatTaskRef(name, id)), true)
-			if err != nil {
-				return err
-			}
-			if !confirm {
-				return util.ErrCanceled
-			}
-		}
-
-		if err := client.RestartConnectorTask(cmd.Context(), name, id); err != nil {
-			return fmt.Errorf("failed to restart %s: %w", util.FormatTaskRef(name, id), err)
-		}
-
-		if jsonMode {
-			printRestartJSON(name, id, "ok")
-			return nil
-		}
-		color.Green("Restart requested for %s\n", util.FormatTaskRef(name, id))
-		return nil
+		return action.Run(cmd, action.Spec{
+			Verb:           "restart",
+			SuccessFmt:     "Restart requested for %s\n",
+			ConfirmSingle:  true,
+			ConfirmDefault: true,
+			Op: func(ctx context.Context, t action.Target) error {
+				return client.RestartConnectorTask(ctx, t.Connector, *t.Task)
+			},
+		}, []action.Target{{Connector: name, Task: &id}})
 	},
 }
 
 func init() {
 	restartCmd.Flags().BoolVarP(&restartYes, "yes", "y", false, "Skip the confirmation prompt (for scripting)")
 	Cmd.AddCommand(restartCmd)
-}
-
-// printRestartJSON matches the connector lifecycle JSON shape, plus the task id.
-func printRestartJSON(name string, id int, result string) {
-	b, _ := json.Marshal(map[string]any{"name": name, "task": id, "action": "restart", "result": result})
-	fmt.Println(string(b))
 }
