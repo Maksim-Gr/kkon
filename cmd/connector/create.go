@@ -113,43 +113,28 @@ func submitConnectorFromFile(cmd *cobra.Command, path string) error {
 		return fmt.Errorf("invalid JSON in %s: %w", path, err)
 	}
 
-	var meta struct {
-		Name string `json:"name"`
+	configMap, err := configMapFromFile(b)
+	if err != nil {
+		return fmt.Errorf("connector config in %s %w", path, err)
 	}
-	_ = json.Unmarshal(b, &meta)
 
 	client, err := util.NewKafkaConnectClient()
 	if err != nil {
 		return err
 	}
 
-	configMap, wrapped := configMapFromFile(b)
-	payload := b
-	// POST /connectors only accepts {"name","config"}; wrap a flat config map.
-	if configMap != nil && !wrapped {
-		if configMap["name"] == "" {
-			return fmt.Errorf("connector config in %s has no \"name\"", path)
+	if jsonMode {
+		if err := validateConfigStrict(ctx, client, configMap); err != nil {
+			return err
 		}
-		meta.Name = configMap["name"]
-		if payload, err = json.Marshal(map[string]any{"name": meta.Name, "config": configMap}); err != nil {
-			return fmt.Errorf("failed to encode config: %w", err)
-		}
-	}
-
-	if configMap != nil {
-		if jsonMode {
-			if err := validateConfigStrict(ctx, client, configMap); err != nil {
-				return err
-			}
-		} else if !validateConfigOrConfirm(ctx, client, configMap) {
-			color.Yellow("Submission cancelled.\n")
-			return util.ErrNothingToDo
-		}
+	} else if !validateConfigOrConfirm(ctx, client, configMap) {
+		color.Yellow("Submission cancelled.\n")
+		return util.ErrNothingToDo
 	}
 
 	if util.IsDryRun(cmd) {
 		if jsonMode {
-			printDryRunPreview(jsonMode, "create", []string{meta.Name}, "")
+			printDryRunPreview(jsonMode, "create", []string{configMap["name"]}, "")
 			return nil
 		}
 		color.Yellow("[dry-run] Would submit connector from file %s\n", path)
@@ -159,12 +144,12 @@ func submitConnectorFromFile(cmd *cobra.Command, path string) error {
 	if !jsonMode {
 		color.Green("\n Submitting connector from file: %s ...\n", path)
 	}
-	if _, err := client.SubmitConnector(ctx, string(payload)); err != nil {
+	if _, err := client.CreateConnector(ctx, configMap); err != nil {
 		return fmt.Errorf("failed to submit connector: %w", err)
 	}
 
 	if jsonMode {
-		printActionJSON(meta.Name, "create")
+		printActionJSON(configMap["name"], "create")
 		return nil
 	}
 	color.Green("Connector submitted successfully!\n")
@@ -319,15 +304,7 @@ func reviewAndSubmit(cmd *cobra.Command, client *connector.Client, name string, 
 		return util.ErrNothingToDo
 	}
 
-	// POST /connectors expects {"name": ..., "config": {...}}.
-	payload, err := json.Marshal(map[string]any{
-		"name":   connectorConfig["name"],
-		"config": connectorConfig,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to encode config: %w", err)
-	}
-	if _, err := client.SubmitConnector(ctx, string(payload)); err != nil {
+	if _, err := client.CreateConnector(ctx, connectorConfig); err != nil {
 		return fmt.Errorf("failed to submit connector: %w", err)
 	}
 	color.Green("Connector submitted successfully!\n")

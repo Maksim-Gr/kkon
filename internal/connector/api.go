@@ -4,6 +4,7 @@ package connector
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -97,9 +98,19 @@ func (c *Client) DeleteConnector(ctx context.Context, name string) error {
 	return nil
 }
 
-// SubmitConnector creates a new connector from a JSON config string.
-func (c *Client) SubmitConnector(ctx context.Context, configJSON string) (ConnectorInfo, error) {
-	body, status, err := c.doRequest(ctx, http.MethodPost, "/connectors", []byte(configJSON))
+// CreateConnector creates a new connector from its config. The connector name
+// is taken from cfg["name"], which must be set.
+func (c *Client) CreateConnector(ctx context.Context, cfg map[string]string) (ConnectorInfo, error) {
+	name := cfg["name"]
+	if name == "" {
+		return ConnectorInfo{}, errors.New(`connector config has no "name"`)
+	}
+	// POST /connectors expects {"name": ..., "config": {...}}.
+	b, err := json.Marshal(map[string]any{"name": name, "config": cfg})
+	if err != nil {
+		return ConnectorInfo{}, err
+	}
+	body, status, err := c.doRequest(ctx, http.MethodPost, "/connectors", b)
 	if err != nil {
 		return ConnectorInfo{}, err
 	}
@@ -111,23 +122,6 @@ func (c *Client) SubmitConnector(ctx context.Context, configJSON string) (Connec
 		return ConnectorInfo{}, err
 	}
 	return info, nil
-}
-
-// GetConnectorConfig returns the raw JSON config for the named connector.
-func (c *Client) GetConnectorConfig(ctx context.Context, name string) (string, error) {
-	body, status, err := c.doRequest(
-		ctx,
-		http.MethodGet,
-		"/connectors/"+url.PathEscape(name)+"/config",
-		nil,
-	)
-	if err != nil {
-		return "", err
-	}
-	if !isSuccess(status) {
-		return "", fmt.Errorf("failed to get connector config: %s", errorMessage(body))
-	}
-	return string(body), nil
 }
 
 // UpdateConnectorConfig applies a new config map to the named connector.
@@ -146,8 +140,8 @@ func (c *Client) UpdateConnectorConfig(ctx context.Context, name string, cfg map
 	return nil
 }
 
-// GetConnectorConfigJSON returns the config for the named connector as a map.
-func (c *Client) GetConnectorConfigJSON(ctx context.Context, name string) (map[string]string, error) {
+// GetConnectorConfig returns the config for the named connector as a map.
+func (c *Client) GetConnectorConfig(ctx context.Context, name string) (map[string]string, error) {
 	body, status, err := c.doRequest(
 		ctx,
 		http.MethodGet,
@@ -235,7 +229,7 @@ func BackupConnectorConfig(
 	dumpConfig := make(map[string]map[string]string)
 
 	for _, name := range connectors {
-		cfg, err := client.GetConnectorConfigJSON(ctx, name)
+		cfg, err := client.GetConnectorConfig(ctx, name)
 		if err != nil {
 			return "", err
 		}

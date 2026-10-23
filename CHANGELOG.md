@@ -19,6 +19,10 @@
 - The spinner is not drawn when stderr is not a terminal.
 - The plugin wizard masks more credential-like fields (tokens, API keys,
   credentials, `sasl.jaas.config`).
+- `create --file` accepts number and boolean config values (sent as strings)
+  and validates them like any other file; previously such files skipped
+  validation. Nested values, top-level fields other than `name` and `config`,
+  and a top-level `name` that differs from the config's `name` are rejected.
 
 ### Fixed
 - Connector names containing `#`, `?`, `%` or `/` are now URL-escaped;

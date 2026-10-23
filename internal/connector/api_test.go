@@ -58,17 +58,29 @@ func TestGetConnectorStatus(t *testing.T) {
 	assert.Equal(t, "/connectors/alpha/status", rec.path)
 }
 
-func TestSubmitConnector(t *testing.T) {
+func TestCreateConnector(t *testing.T) {
 	client, rec := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 		_, _ = w.Write([]byte(`{"name": "alpha", "config": {"connector.class": "X"}, "type": "source"}`))
 	})
 
-	got, err := client.SubmitConnector(context.Background(), `{"name":"alpha"}`)
+	got, err := client.CreateConnector(context.Background(), map[string]string{"name": "alpha", "connector.class": "X"})
 	require.NoError(t, err)
 	assert.Equal(t, "alpha", got.Name)
 	assert.Equal(t, http.MethodPost, rec.method)
-	assert.JSONEq(t, `{"name":"alpha"}`, string(rec.body))
+	assert.Equal(t, "/connectors", rec.path)
+	assert.JSONEq(t, `{"name":"alpha","config":{"name":"alpha","connector.class":"X"}}`, string(rec.body))
+}
+
+func TestCreateConnectorRequiresName(t *testing.T) {
+	client, rec := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	})
+
+	_, err := client.CreateConnector(context.Background(), map[string]string{"connector.class": "X"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `no "name"`)
+	assert.Empty(t, rec.method, "no request should be sent")
 }
 
 func TestUpdateConnectorConfig(t *testing.T) {

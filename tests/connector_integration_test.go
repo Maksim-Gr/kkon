@@ -14,14 +14,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const mockSinkConfigTemplate = `{
-	"name": "%s",
-	"config": {
+// mockSinkConfig returns a MockSinkConnector config named name that reads topic.
+func mockSinkConfig(name, topic string) map[string]string {
+	return map[string]string{
+		"name":            name,
 		"connector.class": "org.apache.kafka.connect.tools.MockSinkConnector",
-		"tasks.max": "1",
-		"topics": "%s"
+		"tasks.max":       "1",
+		"topics":          topic,
 	}
-}`
+}
 
 // setupConnectors creates a set of connectors for testing.
 func setupConnectors(t *testing.T, client *c.Client, names []string) {
@@ -29,9 +30,7 @@ func setupConnectors(t *testing.T, client *c.Client, names []string) {
 
 	for i, name := range names {
 		topic := fmt.Sprintf("test-topic-%c", 'A'+i)
-		config := fmt.Sprintf(mockSinkConfigTemplate, name, topic)
-
-		_, err := client.SubmitConnector(context.Background(), config)
+		_, err := client.CreateConnector(context.Background(), mockSinkConfig(name, topic))
 		require.NoError(t, err, "creating connector: %s", name)
 	}
 }
@@ -169,16 +168,13 @@ func TestGetConnectorConfig(t *testing.T) {
 	topic := "topic-gc"
 	defer cleanupConnectors(t, client, []string{connectorName})
 
-	config := fmt.Sprintf(mockSinkConfigTemplate, connectorName, topic)
-
-	_, err := client.SubmitConnector(context.Background(), config)
+	_, err := client.CreateConnector(context.Background(), mockSinkConfig(connectorName, topic))
 	require.NoError(t, err)
 
-	jsonConfig, err := client.GetConnectorConfig(context.Background(), connectorName)
+	cfg, err := client.GetConnectorConfig(context.Background(), connectorName)
 	require.NoError(t, err)
 
-	require.Contains(t, jsonConfig, "connector.class")
-	require.Contains(t, jsonConfig, "MockSinkConnector")
+	require.Equal(t, "org.apache.kafka.connect.tools.MockSinkConnector", cfg["connector.class"])
 }
 
 func TestSubmitAndList(t *testing.T) {
@@ -189,9 +185,7 @@ func TestSubmitAndList(t *testing.T) {
 	topic := "test-topic-sl"
 	defer cleanupConnectors(t, client, []string{connectorName})
 
-	config := fmt.Sprintf(mockSinkConfigTemplate, connectorName, topic)
-
-	_, err := client.SubmitConnector(context.Background(), config)
+	_, err := client.CreateConnector(context.Background(), mockSinkConfig(connectorName, topic))
 	require.NoError(t, err)
 
 	got, err := client.ListConnectors(context.Background())

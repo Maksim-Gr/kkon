@@ -278,3 +278,75 @@ func TestWaitForConnectorRunning_StopsOnCancel(t *testing.T) {
 	assert.False(t, healthy)
 	assert.Less(t, time.Since(start), 500*time.Millisecond)
 }
+
+func TestConfigMapFromFile(t *testing.T) {
+	tests := []struct {
+		name    string
+		file    string
+		want    map[string]string
+		wantErr string
+	}{
+		{
+			name: "flat",
+			file: `{"name": "a", "connector.class": "X", "tasks.max": "1"}`,
+			want: map[string]string{"name": "a", "connector.class": "X", "tasks.max": "1"},
+		},
+		{
+			name: "wrapped folds name into config",
+			file: `{"name": "a", "config": {"connector.class": "X"}}`,
+			want: map[string]string{"name": "a", "connector.class": "X"},
+		},
+		{
+			name: "wrapped with matching config name",
+			file: `{"name": "a", "config": {"name": "a", "connector.class": "X"}}`,
+			want: map[string]string{"name": "a", "connector.class": "X"},
+		},
+		{
+			name: "non-string scalars become strings",
+			file: `{"name": "a", "config": {"tasks.max": 1, "big": 12345678901234567890, "flag": true, "unset": null}}`,
+			want: map[string]string{"name": "a", "tasks.max": "1", "big": "12345678901234567890", "flag": "true", "unset": ""},
+		},
+		{
+			name:    "missing name",
+			file:    `{"connector.class": "X"}`,
+			wantErr: `has no "name"`,
+		},
+		{
+			name:    "wrapped with mismatched names",
+			file:    `{"name": "a", "config": {"name": "b"}}`,
+			wantErr: `has name "a" but config name "b"`,
+		},
+		{
+			name:    "unsupported top-level field",
+			file:    `{"name": "a", "config": {}, "initial_state": "PAUSED"}`,
+			wantErr: `unsupported top-level field "initial_state"`,
+		},
+		{
+			name:    "nested value",
+			file:    `{"name": "a", "transforms": {"x": 1}}`,
+			wantErr: `nested value for "transforms"`,
+		},
+		{
+			name:    "config not an object",
+			file:    `{"name": "a", "config": "x"}`,
+			wantErr: `"config" that is not a JSON object`,
+		},
+		{
+			name:    "not an object",
+			file:    `["a"]`,
+			wantErr: "is not a JSON object",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := configMapFromFile([]byte(tt.file))
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
