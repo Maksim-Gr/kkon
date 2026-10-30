@@ -13,6 +13,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Maksim-Gr/kkon/internal/fileutil"
+
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"gopkg.in/yaml.v3"
 )
@@ -90,7 +92,7 @@ func SaveConfig(cfg RestAPIConfig, configPath string) error {
 		return err
 	}
 
-	return os.WriteFile(configPath, data, 0o600)
+	return fileutil.WriteAtomic(configPath, data)
 }
 
 // LoadConfig reads and returns the config from the default config path.

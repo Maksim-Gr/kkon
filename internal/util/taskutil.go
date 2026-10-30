@@ -74,7 +74,6 @@ func ResolveConnectorNames(ctx context.Context, client *connector.Client, args [
 		return nil, fmt.Errorf("failed to list connectors: %w", err)
 	}
 	if len(connectors) == 0 {
-		color.Yellow("No connectors found\n")
 		return nil, ErrNothingToDo
 	}
 	sort.Strings(connectors)

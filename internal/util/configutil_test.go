@@ -3,6 +3,7 @@ package util
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -86,4 +87,16 @@ func TestKeysFromMapSorted(t *testing.T) {
 	for range 20 {
 		assert.Equal(t, []string{"connector.class", "name", "tasks.max", "topics"}, KeysFromMap(m))
 	}
+}
+
+func TestSaveConfigReplacesExistingFilePrivately(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file permissions")
+	}
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("old config"), 0o644)) //nolint:gosec // Exercise replacement of an insecure existing file.
+	require.NoError(t, SaveConfig(RestAPIConfig{KafkaConnect: KafkaConnectConfig{Password: "example"}}, path))
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 }

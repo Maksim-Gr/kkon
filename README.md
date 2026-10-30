@@ -165,6 +165,10 @@ kkon config show              # Display current configuration
 
 Exit codes: `0` for success, user cancel, or nothing to do (e.g. no connectors found); `1` for any failure.
 
+Create and update previews mask credential fields. An update exits `1` if its
+result cannot be verified or the connector does not return to RUNNING, including
+when the previous config is restored. Empty bulk operations emit `[]` in JSON mode.
+
 ---
 
 ## Backup Example
@@ -183,7 +187,14 @@ Restore them with:
 kkon connector restore ./backup/config_20240101_120000.json
 ```
 
+Backups use unique filenames and owner-only permissions. A complete backup is
+published atomically using a hard link, so the backup directory must be on a
+filesystem that supports hard links. Failed writes do not replace previous backups.
+
 Run `kkon connector restore` with no argument to pick a backup file interactively from the backup directory. Existing connectors are only overwritten after confirmation (use `--yes` to skip prompts, or `--dry-run` to preview). Restoring continues past individual failures, prints a per-connector ✓/✗ summary, and exits `1` if any connector failed to restore.
+
+Without `--yes`, restore aborts if it cannot list existing connectors to check
+for overwrites.
 
 ---
 
