@@ -190,6 +190,15 @@ func lifecycleRunE(spec lifecycleSpec) func(cmd *cobra.Command, args []string) e
 		}
 
 		names, err := util.ResolveConnectorNames(cmd.Context(), client, args, all)
+		if errors.Is(err, util.ErrNothingToDo) {
+			if jsonMode {
+				fmt.Println("[]")
+			} else {
+				color.Yellow("No connectors found\n")
+				return util.ErrNothingToDo
+			}
+			return nil
+		}
 		if err != nil {
 			return err
 		}
@@ -358,7 +367,7 @@ func editConnectorConfig(ctx context.Context, client *connector.Client, selected
 	}
 
 	for {
-		pretty, err := util.ToPrettyJSON(connectorConfig)
+		pretty, err := util.ToPrettyJSON(redactConfig(connectorConfig))
 		if err != nil {
 			return fmt.Errorf("failed to format config: %w", err)
 		}
@@ -380,9 +389,7 @@ func editConnectorConfig(ctx context.Context, client *connector.Client, selected
 		}
 
 		var newValue string
-		if err := survey.AskOne(&survey.Input{
-			Message: fmt.Sprintf("New value for %s (current: %v):", fieldToChange, connectorConfig[fieldToChange]),
-		}, &newValue); err != nil {
+		if err := survey.AskOne(configValuePrompt(fieldToChange), &newValue); err != nil {
 			return util.ErrCanceled
 		}
 		connectorConfig[fieldToChange] = newValue
@@ -421,7 +428,7 @@ func editConnectorConfig(ctx context.Context, client *connector.Client, selected
 	}
 	color.Cyan("\nChanges:")
 	for _, k := range changedKeys {
-		fmt.Printf("  %-*s  %s  →  %s\n", maxKeyLen, k, original[k], connectorConfig[k])
+		fmt.Printf("  %-*s  %s  →  %s\n", maxKeyLen, k, displayConfigValue(k, original[k]), displayConfigValue(k, connectorConfig[k]))
 	}
 
 	if dryRun {
@@ -446,25 +453,26 @@ func editConnectorConfig(ctx context.Context, client *connector.Client, selected
 	}
 	color.Green("Connector %s updated; restarting with new config...\n", selected)
 
-	verifyConnectorOrRevert(ctx, client, selected, original)
-	return nil
+	return verifyConnectorOrRevert(ctx, client, selected, original)
 }
 
 // verifyConnectorOrRevert polls the connector's status after a config change.
 // Updating a config restarts the connector and its tasks, so this waits for it
 // to settle and reports whether it is RUNNING. If it is not healthy, it offers
 // to revert to the previous config.
-func verifyConnectorOrRevert(ctx context.Context, client *connector.Client, name string, original map[string]string) {
+func verifyConnectorOrRevert(ctx context.Context, client *connector.Client, name string, original map[string]string) error {
 	status, healthy := waitForConnectorRunning(ctx, client, name, 5, 2*time.Second)
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("could not verify updated connector %s: %w", name, err)
+	}
 
 	if healthy {
 		color.Green("Connector %s is up and running: %s\n", name, util.ColorState(status.Connector.State))
-		return
+		return nil
 	}
 
 	if status.Name == "" {
-		color.Yellow("Could not verify connector status\n")
-		return
+		return fmt.Errorf("could not verify updated connector %s", name)
 	}
 
 	color.Red("Connector %s did not come back RUNNING.\n", name)
@@ -473,20 +481,30 @@ func verifyConnectorOrRevert(ctx context.Context, client *connector.Client, name
 		fmt.Printf("  task %d: %s\n", t.ID, util.ColorState(t.State))
 	}
 
-	var revert bool
-	if err := survey.AskOne(&survey.Confirm{
-		Message: fmt.Sprintf("Connector %s is not RUNNING. Revert to previous config?", name),
-		Default: true,
-	}, &revert); err != nil || !revert {
-		color.Yellow("Keeping new config in place\n")
-		return
+	return revertUnhealthyConnector(ctx, client, name, original, func() (bool, error) {
+		var revert bool
+		err := survey.AskOne(&survey.Confirm{
+			Message: fmt.Sprintf("Connector %s is not RUNNING. Revert to previous config?", name),
+			Default: true,
+		}, &revert)
+		return revert, err
+	})
+}
+
+func revertUnhealthyConnector(ctx context.Context, client *connector.Client, name string, original map[string]string, confirm func() (bool, error)) error {
+	revert, err := confirm()
+	if err != nil {
+		return fmt.Errorf("connector %s is not RUNNING; rollback confirmation failed: %w", name, err)
+	}
+	if !revert {
+		return fmt.Errorf("connector %s is not RUNNING; keeping new config in place", name)
 	}
 
 	if err := client.UpdateConnectorConfig(ctx, name, original); err != nil {
-		color.Red("Failed to revert connector: %v\n", err)
-		return
+		return fmt.Errorf("connector %s is not RUNNING; failed to revert config: %w", name, err)
 	}
 	color.Green("Reverted %s to previous config\n", name)
+	return fmt.Errorf("connector %s did not come back RUNNING; previous config restored", name)
 }
 
 // waitForConnectorRunning polls the connector's status up to attempts times,

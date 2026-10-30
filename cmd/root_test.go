@@ -368,3 +368,70 @@ func TestExecute_CreateFromFileRejectsUnknownTopLevelField(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `unsupported top-level field "initial_state"`)
 }
+
+func TestExecute_RestoreDiscoveryFailureDoesNotOverwrite(t *testing.T) {
+	var mutations int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			mutations++
+			return
+		}
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(srv.Close)
+	setTestConfig(t, srv.URL)
+	file := filepath.Join(t.TempDir(), "backup.json")
+	require.NoError(t, os.WriteFile(file, []byte(`{"alpha":{"name":"alpha"}}`), 0o600))
+
+	err := execute("connector", "restore", file)
+	require.ErrorContains(t, err, "cannot check existing connectors")
+	assert.Zero(t, mutations, "a failed lookup must not authorize overwrites")
+}
+
+func TestExecute_EmptyBulkJSON(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	t.Cleanup(srv.Close)
+	setTestConfig(t, srv.URL)
+	resetFlags(t)
+
+	for _, action := range []string{"pause", "resume", "restart", "delete"} {
+		t.Run(action, func(t *testing.T) {
+			command, _, err := RootCmd.Find([]string{"connector", action})
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				require.NoError(t, command.Flags().Set("all", "false"))
+				require.NoError(t, command.Flags().Set("yes", "false"))
+			})
+			out := captureStdout(t, func() {
+				require.NoError(t, execute("connector", action, "--all", "--yes", "--output", "json"))
+			})
+			assert.JSONEq(t, `[]`, out)
+		})
+	}
+}
+
+func TestExecute_RestoreYesDoesNotNeedDiscovery(t *testing.T) {
+	var mutations int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			t.Error("explicit overwrite authorization does not need discovery")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		assert.Equal(t, "/connectors/alpha/config", r.URL.Path)
+		mutations++
+	}))
+	t.Cleanup(srv.Close)
+	setTestConfig(t, srv.URL)
+	resetFlags(t)
+	t.Cleanup(func() { require.NoError(t, connector.RestoreCmd.Flags().Set("yes", "false")) })
+	file := filepath.Join(t.TempDir(), "backup.json")
+	require.NoError(t, os.WriteFile(file, []byte(`{"alpha":{"name":"alpha"}}`), 0o600))
+	out := captureStdout(t, func() {
+		require.NoError(t, execute("connector", "restore", file, "--yes", "--output", "json"))
+	})
+	assert.JSONEq(t, `[{"name":"alpha"}]`, out)
+	assert.Equal(t, 1, mutations)
+}

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -241,19 +242,29 @@ func BackupConnectorConfig(
 	}
 
 	timestamp := time.Now().Format("20060102_150405")
-	outputFile := filepath.Join(outputDir, fmt.Sprintf("config_%s.json", timestamp))
-
-	// Backups can contain connector secrets, so restrict to owner read/write.
-	file, err := os.OpenFile(outputFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec
+	// Stage privately, then publish a complete backup without replacing any file.
+	file, err := os.CreateTemp(outputDir, ".config_"+timestamp+"_*")
 	if err != nil {
 		return "", fmt.Errorf("failed to create file: %w", err)
 	}
-	defer file.Close() //nolint:errcheck
+	defer os.Remove(file.Name()) //nolint:errcheck // Remove staging file on every path.
+	defer file.Close()           //nolint:errcheck // Explicitly closed before publishing.
 
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(dumpConfig); err != nil {
 		return "", fmt.Errorf("failed to encode config: %w", err)
+	}
+	if err := file.Sync(); err != nil {
+		return "", fmt.Errorf("failed to sync backup: %w", err)
+	}
+	if err := file.Close(); err != nil {
+		return "", fmt.Errorf("failed to close backup: %w", err)
+	}
+	outputFile := filepath.Join(outputDir, strings.TrimPrefix(filepath.Base(file.Name()), ".")+".json")
+	// Link is atomic and fails if outputFile exists, protecting previous backups.
+	if err := os.Link(file.Name(), outputFile); err != nil {
+		return "", fmt.Errorf("failed to publish backup: %w", err)
 	}
 
 	return outputFile, nil

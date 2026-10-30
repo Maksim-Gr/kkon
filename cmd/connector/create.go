@@ -162,7 +162,7 @@ func configureConnector(cmd *cobra.Command, name string, connectorConfig map[str
 	questions := make([]*survey.Question, 0, len(required))
 	for _, field := range required {
 		var prompt survey.Prompt
-		if field == passwordField {
+		if field == passwordField || isSecretField(field) {
 			prompt = &survey.Password{Message: fmt.Sprintf("Enter %s:", field)}
 		} else {
 			prompt = &survey.Input{Message: fmt.Sprintf("Enter %s:", field)}
@@ -206,7 +206,7 @@ func reviewAndSubmit(cmd *cobra.Command, client *connector.Client, name string, 
 	}
 
 	for {
-		finalConfig, err := util.ToPrettyJSON(connectorConfig)
+		finalConfig, err := util.ToPrettyJSON(redactConfig(connectorConfig))
 		if err != nil {
 			return fmt.Errorf("failed to format config: %w", err)
 		}
@@ -243,9 +243,7 @@ func reviewAndSubmit(cmd *cobra.Command, client *connector.Client, name string, 
 		}
 
 		var newValue string
-		valuePrompt := &survey.Input{
-			Message: fmt.Sprintf("Enter new value for %s:", fieldToChange),
-		}
+		valuePrompt := configValuePrompt(fieldToChange)
 		if err := survey.AskOne(valuePrompt, &newValue); err != nil {
 			if util.IsSurveyInterrupt(err) {
 				return util.ErrCanceled
@@ -265,7 +263,7 @@ func reviewAndSubmit(cmd *cobra.Command, client *connector.Client, name string, 
 		connectorConfig["name"] = connName
 	}
 
-	finalConfig, err := util.ToPrettyJSON(connectorConfig)
+	finalConfig, err := util.ToPrettyJSON(redactConfig(connectorConfig))
 	if err != nil {
 		return fmt.Errorf("failed to format config: %w", err)
 	}

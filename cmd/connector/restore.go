@@ -55,6 +55,10 @@ connectors are only overwritten after confirmation (skip it with --yes).`,
 			return err
 		}
 		if len(configs) == 0 {
+			if jsonMode {
+				fmt.Println("[]")
+				return nil
+			}
 			color.Yellow("No connectors found in %s\n", file)
 			return util.ErrNothingToDo
 		}
@@ -71,7 +75,11 @@ connectors are only overwritten after confirmation (skip it with --yes).`,
 
 		// Detect connectors that already exist so we can confirm overwrites.
 		existing := map[string]bool{}
-		if names, err := client.ListConnectors(cmd.Context()); err == nil {
+		if !restoreYes {
+			names, err := client.ListConnectors(cmd.Context())
+			if err != nil {
+				return fmt.Errorf("cannot check existing connectors; restore aborted: %w", err)
+			}
 			for _, n := range names {
 				existing[n] = true
 			}
