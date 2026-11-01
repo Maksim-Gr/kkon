@@ -1,53 +1,17 @@
-<div align="center">
-  <img src="./assets/banner.svg" alt="kkon" width="70%">
-</div>
-
-<div align="center">
+# kkon
 
 [![Go](https://github.com/Maksim-Gr/kkon/actions/workflows/go.yml/badge.svg)](https://github.com/Maksim-Gr/kkon/actions/workflows/go.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/Maksim-Gr/kkon)](https://goreportcard.com/report/github.com/Maksim-Gr/kkon)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/Maksim-Gr/kkon)](https://github.com/Maksim-Gr/kkon/blob/main/go.mod)
 [![Latest Release](https://img.shields.io/github/v/release/Maksim-Gr/kkon?include_prereleases)](https://github.com/Maksim-Gr/kkon/releases)
-[![Go Reference](https://pkg.go.dev/badge/github.com/Maksim-Gr/kkon.svg)](https://pkg.go.dev/github.com/Maksim-Gr/kkon)
 
-</div>
+A CLI for managing Kafka Connect connectors through the REST API.
+List, inspect, create, update, and back up connectors from your terminal.
 
----
+![kkon demo: list connectors, inspect status and config, and create a connector from an installed plugin](./assets/demo.gif)
 
-A command-line interface for managing Kafka Connect connectors via the Kafka Connect REST API.
-`kkon` focuses on providing a fast, simple, and interactive CLI experience for day-to-day connector operations.
+Commands support interactive prompts or explicit arguments for scripts. Use
+`--output json` for JSON output and `--dry-run` to preview changes.
 
-<div align="center">
-  <img src="./assets/demo.gif" alt="kkon demo — list connectors, inspect status and config, and create a connector from an installed plugin" width="90%">
-</div>
-
----
-
-## Overview
-
-`kkon` is a Go-based CLI tool designed to interact with Kafka Connect clusters.
-It creates a lightweight client for the Kafka Connect REST API and exposes common connector management operations through an intuitive command-line interface.
-
-The tool is intended for developers and operators who want a straightforward way to list, inspect, back up, create, and delete connectors without manually interacting with REST endpoints.
-
----
-
-## Features
-
-- List running Kafka Connect connectors with live status badges (RUNNING / FAILED / PAUSED)
-- View connector configurations
-- Create connectors from predefined templates (RabbitMQ, S3 Sink, JDBC, Debezium Postgres), from **any plugin installed on the cluster** (`--plugin <class>` or the `Custom` wizard option — discovers required fields via the validate endpoint), or from a JSON file
-- Pause, resume, restart, and delete connectors individually, by name, or in bulk (`--all` or a multi-select) — bulk runs continue past individual failures and print a per-connector ✓/✗ summary
-- Update connector configuration with a before→after diff view
-- Back up connector configurations to JSON files, and restore them later (continues past individual failures, exits non-zero if any restore failed)
-- Health-check with per-task error trace preview for failed tasks
-- Interactive CLI prompts (arrow-key navigation, cancel option on every prompt)
-- Connection test after saving credentials
-- Basic auth support
-- Simple configuration-driven setup, with `KKON_*` environment variable overrides for CI
-- Scriptable: commands exit `1` on failure (`0` for success, user cancel, or nothing to do), and `--output json` produces clean, pipeable JSON for both read and (fully non-interactive) mutating commands, including `--dry-run` previews
-
----
+See the [documentation](./docs/README.md) for configuration, commands, and workflows.
 
 ## Installation
 
@@ -73,8 +37,6 @@ git clone https://github.com/Maksim-Gr/kkon.git
 cd kkon
 go build -o kkon
 ```
-
----
 
 ## Configuration
 
@@ -103,13 +65,11 @@ kafkaConnect:
 
 ### Environment variables
 
-`KKON_CONNECT_URL`, `KKON_CONNECT_USERNAME`, `KKON_CONNECT_PASSWORD`, and `KKON_SCHEMA_REGISTRY_URL` override the config file. With `KKON_CONNECT_URL` set, no config file or interactive setup is needed — handy in CI:
+`KKON_CONNECT_URL`, `KKON_CONNECT_USERNAME`, `KKON_CONNECT_PASSWORD`, and `KKON_SCHEMA_REGISTRY_URL` override the config file. Set `KKON_CONNECT_URL` to run without a config file or interactive setup:
 
 ```bash
 KKON_CONNECT_URL=http://connect:8083 kkon connector health-check --output json
 ```
-
----
 
 ## Usage
 
@@ -169,17 +129,13 @@ Create and update previews mask credential fields. An update exits `1` if its
 result cannot be verified or the connector does not return to RUNNING, including
 when the previous config is restored. Empty bulk operations emit `[]` in JSON mode.
 
----
-
-## Backup Example
+## Backup and restore
 
 The `backup` command retrieves all connector configurations from the Kafka Connect cluster and stores them in a timestamped JSON file:
 
 ```bash
 kkon connector backup --dir ./backup
 ```
-
-This allows connector configurations to be versioned, reviewed, or restored later.
 
 Restore them with:
 
@@ -196,34 +152,13 @@ Run `kkon connector restore` with no argument to pick a backup file interactivel
 Without `--yes`, restore aborts if it cannot list existing connectors to check
 for overwrites.
 
----
-
-## Roadmap
-
-- Additional connector templates
-- Table output format (`--output table`)
-
----
-
-## Project Status
-
-`kkon` is stable and actively used for connector lifecycle management.
-Releases follow semantic versioning; new connector templates and API features are added in backward-compatible minor releases, and breaking changes (e.g. exit code behavior in v2.0.0) bump the major version.
-
----
-
 ## Contributing
-
-Contributions, bug reports, and feature requests are welcome.
 
 - Check open issues before submitting a duplicate
 - Fork the repository and open a pull request against `main`
 - Follow the existing code style (`gofmt`, `go vet`)
 - Integration tests require Docker; run `make test`
 
----
-
 ## References
 
-- Kafka Connect REST API documentation:
-  https://docs.confluent.io/platform/current/connect/references/restapi.html
+- [Kafka Connect REST API](https://docs.confluent.io/platform/current/connect/references/restapi.html)
