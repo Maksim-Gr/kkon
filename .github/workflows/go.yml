@@ -2,50 +2,126 @@ name: Go
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: go-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build:
+  quality:
+    name: Formatting and static checks
     runs-on: ubuntu-latest
-
+    timeout-minutes: 15
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Setup Go 1.27
-        uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          go-version: "1.27"
-          cache: true
-
-      - name: Display Go version
-        run: go version
-
-      - name: Download dependencies
-        run: go mod download
-
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
       - name: Verify dependencies
         run: go mod verify
-
       - name: Check go.mod is tidy
         run: go mod tidy -diff
-
-      - name: Run gofmt
+      - name: Check formatting
         run: |
-          gofmt -w .
-          git diff --exit-code
-
-      - name: Run go vet
-        run: go vet ./...
-
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v9
+          files=$(gofmt -l .)
+          if [ -n "$files" ]; then
+            printf '%s\n' "$files"
+            exit 1
+          fi
+      - name: Validate workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
-          version: v2.14.0
+          version: v2.15.0
 
-      - name: Run tests
-        run: go test ./... -v
-
+  unit:
+    name: Unit tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Test with race detector
+        if: runner.os == 'Linux'
+        run: go test -short -race -timeout=10m ./...
+      - name: Test
+        if: runner.os != 'Linux'
+        run: go test -short -timeout=10m ./...
       - name: Build
         run: go build ./...
+
+  integration:
+    name: Kafka Connect integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      KKON_REQUIRE_DOCKER: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Require Docker
+        run: docker info
+      - name: Run integration tests
+        shell: bash
+        run: |
+          set -o pipefail
+          go test -count=1 -timeout=25m -v ./tests 2>&1 | tee integration.log
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: integration-diagnostics
+          path: integration.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  packaging:
+    name: Validate release packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
+        with:
+          version: v2.20.0
+          install-only: true
+      - name: Validate release configuration
+        run: goreleaser check
+      - name: Build snapshot archives
+        run: goreleaser release --snapshot --clean
+      - name: Verify checksums
+        working-directory: dist
+        run: sha256sum -c ./*_checksums.txt
+      - name: Verify archive contents and build metadata
+        run: python3 scripts/verify-release.py
+
+  vulnerabilities:
+    name: Vulnerability scan
+    uses: ./.github/workflows/vulnerabilities.yml
