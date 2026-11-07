@@ -10,9 +10,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// setTestHome isolates the config using the platform's home directory variable.
+func setTestHome(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	key := "HOME"
+	if runtime.GOOS == "windows" {
+		key = "USERPROFILE"
+	}
+	t.Setenv(key, dir)
+	return dir
+}
+
 func TestSaveAndLoadConfigRoundTrip(t *testing.T) {
-	// Point HOME at a temp dir so GetConfigPath/LoadConfig stay isolated.
-	t.Setenv("HOME", t.TempDir())
+	// Point the home directory at a temp dir so config stays isolated.
+	setTestHome(t)
 
 	path, err := GetConfigPath()
 	require.NoError(t, err)
@@ -32,14 +44,14 @@ func TestSaveAndLoadConfigRoundTrip(t *testing.T) {
 }
 
 func TestLoadConfigMissingFile(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	setTestHome(t)
 
 	_, err := LoadConfig()
 	require.Error(t, err)
 }
 
 func TestResolveConfigEnvOnly(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	setTestHome(t)
 	t.Setenv(EnvConnectURL, "http://connect:8083")
 	t.Setenv(EnvConnectUsername, "ci")
 	t.Setenv(EnvConnectPassword, "token")
@@ -54,7 +66,7 @@ func TestResolveConfigEnvOnly(t *testing.T) {
 }
 
 func TestResolveConfigEnvOverridesFile(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	setTestHome(t)
 	path, err := GetConfigPath()
 	require.NoError(t, err)
 	require.NoError(t, SaveConfig(RestAPIConfig{
@@ -71,7 +83,7 @@ func TestResolveConfigEnvOverridesFile(t *testing.T) {
 }
 
 func TestResolveConfigMalformedFile(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	setTestHome(t)
 	path, err := GetConfigPath()
 	require.NoError(t, err)
 	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))

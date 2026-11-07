@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -21,12 +22,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// setTestConfig points the CLI config at url via a temp HOME so commands run
+// setTestHome isolates the config using the platform's home directory variable.
+func setTestHome(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	key := "HOME"
+	if runtime.GOOS == "windows" {
+		key = "USERPROFILE"
+	}
+	t.Setenv(key, dir)
+	return dir
+}
+
+// setTestConfig points the CLI config at url via a temp home directory so commands run
 // against an httptest server without touching the user's real config.
 func setTestConfig(t *testing.T, url string) {
 	t.Helper()
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	home := setTestHome(t)
 	dir := filepath.Join(home, ".config", "kkon")
 	require.NoError(t, os.MkdirAll(dir, 0o700))
 	cfg := fmt.Sprintf("kafkaConnect:\n  url: %s\n", url)
@@ -116,8 +128,7 @@ func TestExecute_NothingToDoIsNotAFailure(t *testing.T) {
 }
 
 func TestExecute_MalformedConfigIsReported(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	home := setTestHome(t)
 	dir := filepath.Join(home, ".config", "kkon")
 	require.NoError(t, os.MkdirAll(dir, 0o700))
 	path := filepath.Join(dir, "config.yaml")
@@ -133,7 +144,7 @@ func TestExecute_MalformedConfigIsReported(t *testing.T) {
 }
 
 func TestExecute_MissingURLWithoutTerminalFails(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	setTestHome(t)
 	t.Setenv(util.EnvConnectURL, "")
 
 	err := execute("connector", "list")
