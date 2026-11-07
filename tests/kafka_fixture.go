@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -50,9 +52,18 @@ type KafkaConnectTestFixture struct {
 func KafkaConnectFixture(t *testing.T) *KafkaConnectTestFixture {
 	t.Helper()
 	if testing.Short() {
+		require.NotEqual(t, "1", os.Getenv("KKON_REQUIRE_DOCKER"), "strict integration tests must not use -short")
 		t.Skip("skipping Kafka Connect integration test in -short mode")
 	}
-	testcontainers.SkipIfProviderIsNotHealthy(t)
+	if os.Getenv("KKON_REQUIRE_DOCKER") == "1" {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		provider, err := testcontainers.ProviderDocker.GetProvider()
+		require.NoError(t, err, "Docker is required by KKON_REQUIRE_DOCKER=1")
+		require.NoError(t, provider.Health(ctx), "Docker is required by KKON_REQUIRE_DOCKER=1")
+	} else {
+		testcontainers.SkipIfProviderIsNotHealthy(t)
+	}
 	ctx := context.Background()
 
 	nw, err := network.New(ctx)
@@ -75,8 +86,8 @@ func KafkaConnectFixture(t *testing.T) *KafkaConnectTestFixture {
 		ContainerRequest: zooReq,
 		Started:          true,
 	})
+	cleanupKafkaContainer(t, "zookeeper", zooC)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = zooC.Terminate(ctx) })
 
 	// Kafka Broker Setup
 	kafkaReq := testcontainers.ContainerRequest{
@@ -98,8 +109,8 @@ func KafkaConnectFixture(t *testing.T) *KafkaConnectTestFixture {
 		ContainerRequest: kafkaReq,
 		Started:          true,
 	})
+	cleanupKafkaContainer(t, "kafka", kafkaC)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = kafkaC.Terminate(ctx) })
 
 	// Kafka Connect Setup
 	connectReq := testcontainers.ContainerRequest{
@@ -132,8 +143,8 @@ func KafkaConnectFixture(t *testing.T) *KafkaConnectTestFixture {
 		Started:          true,
 	})
 
+	cleanupKafkaContainer(t, "kafka-connect", connectC)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = connectC.Terminate(ctx) })
 
 	connectHost, err := connectC.Host(ctx)
 	require.NoError(t, err)
@@ -147,4 +158,32 @@ func KafkaConnectFixture(t *testing.T) *KafkaConnectTestFixture {
 		Container: connectC,
 		URL:       connectURL,
 	}
+}
+
+// cleanupKafkaContainer records failure diagnostics before terminating the container.
+func cleanupKafkaContainer(t *testing.T, name string, container testcontainers.Container) {
+	t.Helper()
+	if container == nil {
+		return
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if t.Failed() {
+			logs, err := container.Logs(ctx)
+			if err != nil {
+				t.Logf("%s: cannot read container logs: %v", name, err)
+			} else {
+				data, readErr := io.ReadAll(logs)
+				_ = logs.Close()
+				t.Logf("%s logs:\n%s", name, data)
+				if readErr != nil {
+					t.Logf("%s: incomplete container logs: %v", name, readErr)
+				}
+			}
+		}
+		if err := container.Terminate(ctx); err != nil {
+			t.Logf("%s: cleanup failed: %v", name, err)
+		}
+	})
 }
