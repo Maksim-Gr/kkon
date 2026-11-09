@@ -29,11 +29,45 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Test check selection
-        run: python3 -B -m unittest discover -s scripts -p 'test_ci_changes.py'
       - name: Select checks from changed paths
         id: paths
-        run: python3 scripts/ci-changes.py
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          declare -A checks=([quality]=false [unit]=false [integration]=false [packaging]=false [vulnerabilities]=false)
+          all_checks() {
+            for check in "${!checks[@]}"; do checks[$check]=true; done
+          }
+
+          if [[ "$GITHUB_REF" == refs/tags/* || ! "$BASE_SHA" =~ ^[0-9a-f]{40,64}$ || "$BASE_SHA" =~ ^0+$ || ! "$HEAD_SHA" =~ ^[0-9a-f]{40,64}$ ]]; then
+            all_checks
+          else
+            separator=..
+            if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then separator=...; fi
+            if git diff --name-only --no-renames -z "$BASE_SHA$separator$HEAD_SHA" > "$RUNNER_TEMP/changed-paths"; then
+              while IFS= read -r -d '' path; do
+                case "$path" in
+                  *.go|go.mod|go.sum|.github/workflows/go.yml) all_checks ;;
+                  .github/workflows/release.yml) checks[quality]=true; checks[packaging]=true ;;
+                  .github/workflows/vulnerabilities.yml) checks[quality]=true; checks[vulnerabilities]=true ;;
+                  .goreleaser.yaml|scripts/verify-release.py) checks[packaging]=true ;;
+                  .golangci.yml|.golangci.yaml) checks[quality]=true ;;
+                  docker-compose.yml) checks[integration]=true ;;
+                  .github/workflows/*) all_checks ;;
+                  *.md|docs/*|assets/*|img/*|.github/ISSUE_TEMPLATE/*|LICENSE|.gitignore|.gitattributes|.github/CODEOWNERS) ;;
+                  *) all_checks ;;
+                esac
+              done < "$RUNNER_TEMP/changed-paths"
+            else
+              all_checks
+            fi
+          fi
+
+          for check in "${!checks[@]}"; do
+            printf '%s=%s\n' "$check" "${checks[$check]}" >> "$GITHUB_OUTPUT"
+          done
 
   quality:
     name: Formatting and static checks

@@ -43,7 +43,8 @@ pushes to `main`:
 - Documentation and image changes skip those jobs.
 - Release configuration and archive verification changes run packaging validation;
   lint configuration changes run static checks. Workflow changes run their related
-  checks; changes to the shared Go workflow or check-selection scripts run all jobs.
+  checks; changes to the shared Go workflow run all jobs. Path selection is defined
+  directly in that workflow, without separate scripts or filtering actions.
 - Unknown file types and unavailable diffs run all jobs conservatively.
 
 Release tags always run all validation except Docker integration tests. A release
