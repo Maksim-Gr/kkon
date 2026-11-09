@@ -34,11 +34,21 @@ gofmt -s -w .
 ## CI and releases
 
 Pull requests, pushes to `main`, and release tags use the reusable validation
-workflow. Docker integration tests for Kafka Connect and Schema Registry run
-only on pull requests, avoiding repeats after merging and tagging. Formatting,
-static checks, unit tests, release packaging, and vulnerability scanning run on
-all three events. A release is published only after its validation jobs pass for
-the tagged commit.
+workflow. A lightweight path check selects relevant jobs for pull requests and
+pushes to `main`:
+
+- Go source or dependency changes run formatting/static checks, cross-platform
+  unit tests, packaging validation, and vulnerability scanning. Docker integration
+  tests for Kafka Connect and Schema Registry run only on pull requests.
+- Documentation and image changes skip those jobs.
+- Release configuration and archive verification changes run packaging validation;
+  lint configuration changes run static checks. Workflow changes run their related
+  checks; changes to the shared Go workflow or check-selection scripts run all jobs.
+- Unknown file types and unavailable diffs run all jobs conservatively.
+
+Release tags always run all validation except Docker integration tests. A release
+is published only after its validation jobs pass for the tagged commit. Jobs are
+skipped individually so required checks can complete for documentation-only PRs.
 
 Unit tests run on Linux, macOS, and Windows; Linux also enables the race detector:
 

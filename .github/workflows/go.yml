@@ -14,11 +14,37 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    name: Select relevant checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      quality: ${{ steps.paths.outputs.quality }}
+      unit: ${{ steps.paths.outputs.unit }}
+      integration: ${{ steps.paths.outputs.integration }}
+      packaging: ${{ steps.paths.outputs.packaging }}
+      vulnerabilities: ${{ steps.paths.outputs.vulnerabilities }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Test check selection
+        run: python3 -B -m unittest discover -s scripts -p 'test_ci_changes.py'
+      - name: Select checks from changed paths
+        id: paths
+        run: python3 scripts/ci-changes.py
+
   quality:
     name: Formatting and static checks
+    needs: changes
+    if: always() && !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.quality == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Require successful check selection
+        if: needs.changes.result != 'success'
+        run: exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
@@ -44,6 +70,8 @@ jobs:
 
   unit:
     name: Unit tests (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.unit == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -68,7 +96,8 @@ jobs:
 
   integration:
     name: Kafka Connect integration tests
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.integration == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -98,6 +127,8 @@ jobs:
 
   packaging:
     name: Validate release packages
+    needs: changes
+    if: needs.changes.outputs.packaging == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -125,4 +156,6 @@ jobs:
 
   vulnerabilities:
     name: Vulnerability scan
+    needs: changes
+    if: needs.changes.outputs.vulnerabilities == 'true'
     uses: ./.github/workflows/vulnerabilities.yml
