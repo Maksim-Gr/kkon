@@ -14,71 +14,11 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  changes:
-    name: Select relevant checks
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      quality: ${{ steps.paths.outputs.quality }}
-      unit: ${{ steps.paths.outputs.unit }}
-      integration: ${{ steps.paths.outputs.integration }}
-      packaging: ${{ steps.paths.outputs.packaging }}
-      vulnerabilities: ${{ steps.paths.outputs.vulnerabilities }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Select checks from changed paths
-        id: paths
-        shell: bash
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          declare -A checks=([quality]=false [unit]=false [integration]=false [packaging]=false [vulnerabilities]=false)
-          all_checks() {
-            for check in "${!checks[@]}"; do checks[$check]=true; done
-          }
-
-          if [[ "$GITHUB_REF" == refs/tags/* || ! "$BASE_SHA" =~ ^[0-9a-f]{40,64}$ || "$BASE_SHA" =~ ^0+$ || ! "$HEAD_SHA" =~ ^[0-9a-f]{40,64}$ ]]; then
-            all_checks
-          else
-            separator=..
-            if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then separator=...; fi
-            if git diff --name-only --no-renames -z "$BASE_SHA$separator$HEAD_SHA" > "$RUNNER_TEMP/changed-paths"; then
-              while IFS= read -r -d '' path; do
-                case "$path" in
-                  *.go|go.mod|go.sum|.github/workflows/go.yml) all_checks ;;
-                  .github/workflows/release.yml) checks[quality]=true; checks[packaging]=true ;;
-                  .github/workflows/vulnerabilities.yml) checks[quality]=true; checks[vulnerabilities]=true ;;
-                  .goreleaser.yaml|scripts/verify-release.py) checks[packaging]=true ;;
-                  .golangci.yml|.golangci.yaml) checks[quality]=true ;;
-                  docker-compose.yml) checks[integration]=true ;;
-                  .github/workflows/*) all_checks ;;
-                  *.md|docs/*|assets/*|img/*|.github/ISSUE_TEMPLATE/*|LICENSE|.gitignore|.gitattributes|.github/CODEOWNERS) ;;
-                  *) all_checks ;;
-                esac
-              done < "$RUNNER_TEMP/changed-paths"
-            else
-              all_checks
-            fi
-          fi
-
-          for check in "${!checks[@]}"; do
-            printf '%s=%s\n' "$check" "${checks[$check]}" >> "$GITHUB_OUTPUT"
-          done
-
   quality:
     name: Formatting and static checks
-    needs: changes
-    if: always() && !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.quality == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Require successful check selection
-        if: needs.changes.result != 'success'
-        run: exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
@@ -104,8 +44,6 @@ jobs:
 
   unit:
     name: Unit tests (${{ matrix.os }})
-    needs: changes
-    if: needs.changes.outputs.unit == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -130,8 +68,7 @@ jobs:
 
   integration:
     name: Kafka Connect integration tests
-    needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.integration == 'true'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -161,8 +98,6 @@ jobs:
 
   packaging:
     name: Validate release packages
-    needs: changes
-    if: needs.changes.outputs.packaging == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -190,6 +125,4 @@ jobs:
 
   vulnerabilities:
     name: Vulnerability scan
-    needs: changes
-    if: needs.changes.outputs.vulnerabilities == 'true'
     uses: ./.github/workflows/vulnerabilities.yml
