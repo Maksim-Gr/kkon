@@ -33,10 +33,12 @@ gofmt -s -w .
 
 ## CI and releases
 
-Pull requests and pushes to `main` run the same reusable validation workflow as
-release tags. Formatting, static checks, unit tests, Kafka Connect integration,
-release packaging, and vulnerability scanning run independently. A release is
-published only after all validation jobs pass for the tagged commit.
+Pull requests, pushes to `main`, and release tags use the reusable validation
+workflow. Docker integration tests for Kafka Connect and Schema Registry run
+only on pull requests, avoiding repeats after merging and tagging. Formatting,
+static checks, unit tests, release packaging, and vulnerability scanning run on
+all three events. A release is published only after its validation jobs pass for
+the tagged commit.
 
 Unit tests run on Linux, macOS, and Windows; Linux also enables the race detector:
 
