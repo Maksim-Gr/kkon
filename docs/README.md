@@ -13,7 +13,8 @@ This folder contains user and developer documentation for the `kkon` CLI.
 
 ## What is `kkon`?
 
-`kkon` is a command-line tool for managing Kafka Connect connectors through the Kafka Connect REST API.
+`kkon` manages Kafka Connect connectors and schemas through the Confluent Schema
+Registry API. Each service can be configured and used independently.
 
 Typical tasks:
 - list connectors
@@ -21,3 +22,4 @@ Typical tasks:
 - create/delete connectors
 - back up connector configs
 - check connector/task status and restart tasks
+- browse schema subjects and versions, check compatibility, and publish schemas

@@ -35,6 +35,7 @@ func TestSaveAndLoadConfigRoundTrip(t *testing.T) {
 			Username: "admin",
 			Password: "s3cret",
 		},
+		SchemaRegistry: SchemaRegistryConfig{URL: "https://registry:8081", Username: "key", Password: "secret"},
 	}
 	require.NoError(t, SaveConfig(want, path))
 
@@ -56,12 +57,14 @@ func TestResolveConfigEnvOnly(t *testing.T) {
 	t.Setenv(EnvConnectUsername, "ci")
 	t.Setenv(EnvConnectPassword, "token")
 	t.Setenv(EnvSchemaRegistryURL, "registry:8081")
+	t.Setenv(EnvSchemaRegistryUsername, "schema-key")
+	t.Setenv(EnvSchemaRegistryPassword, "schema-secret")
 
 	got, err := ResolveConfig()
 	require.NoError(t, err)
 	assert.Equal(t, RestAPIConfig{
 		KafkaConnect:   KafkaConnectConfig{URL: "http://connect:8083", Username: "ci", Password: "token"},
-		SchemaRegistry: SchemaRegistryConfig{URL: "http://registry:8081"},
+		SchemaRegistry: SchemaRegistryConfig{URL: "http://registry:8081", Username: "schema-key", Password: "schema-secret"},
 	}, got)
 }
 
@@ -80,6 +83,27 @@ func TestResolveConfigEnvOverridesFile(t *testing.T) {
 	assert.Equal(t, "admin", got.KafkaConnect.Username)
 	assert.Equal(t, "s3cret", got.KafkaConnect.Password)
 	assert.Equal(t, []string{EnvConnectURL}, EnvOverrides())
+}
+
+func TestResolveRegistryCredentialsIndependently(t *testing.T) {
+	setTestHome(t)
+	path, err := GetConfigPath()
+	require.NoError(t, err)
+	require.NoError(t, SaveConfig(RestAPIConfig{
+		KafkaConnect:   KafkaConnectConfig{URL: "http://connect:8083", Username: "connect", Password: "connect-secret"},
+		SchemaRegistry: SchemaRegistryConfig{URL: "https://registry:8081", Username: "old", Password: "old-secret"},
+	}, path))
+	t.Setenv(EnvSchemaRegistryUsername, "key")
+	t.Setenv(EnvSchemaRegistryPassword, "secret")
+	got, err := ResolveConfig()
+	require.NoError(t, err)
+	assert.Equal(t, SchemaRegistryConfig{URL: "https://registry:8081", Username: "key", Password: "secret"}, got.SchemaRegistry)
+	assert.Equal(t, "connect-secret", got.KafkaConnect.Password)
+	assert.Equal(t, []string{EnvSchemaRegistryUsername, EnvSchemaRegistryPassword}, EnvOverrides())
+	t.Setenv(EnvSchemaRegistryPassword, "")
+	got, err = ResolveConfig()
+	require.NoError(t, err)
+	assert.Equal(t, "old-secret", got.SchemaRegistry.Password, "empty env values retain file settings")
 }
 
 func TestResolveConfigMalformedFile(t *testing.T) {

@@ -3,8 +3,9 @@
 [![Go](https://github.com/Maksim-Gr/kkon/actions/workflows/go.yml/badge.svg)](https://github.com/Maksim-Gr/kkon/actions/workflows/go.yml)
 [![Latest Release](https://img.shields.io/github/v/release/Maksim-Gr/kkon?include_prereleases)](https://github.com/Maksim-Gr/kkon/releases)
 
-A CLI for managing Kafka Connect connectors through the REST API.
-List, inspect, create, update, and back up connectors from your terminal.
+A CLI for managing Kafka Connect connectors and Confluent Schema Registry schemas.
+Operate and back up connectors, browse schemas, check compatibility, and publish
+schema versions from your terminal.
 
 ![kkon demo: list connectors, inspect status and config, and create a connector from an installed plugin](./assets/demo.gif)
 
@@ -65,7 +66,10 @@ kafkaConnect:
 
 ### Environment variables
 
-`KKON_CONNECT_URL`, `KKON_CONNECT_USERNAME`, `KKON_CONNECT_PASSWORD`, and `KKON_SCHEMA_REGISTRY_URL` override the config file. Set `KKON_CONNECT_URL` to run without a config file or interactive setup:
+`KKON_CONNECT_URL`, `KKON_CONNECT_USERNAME`, and `KKON_CONNECT_PASSWORD` override
+Connect configuration. Schema Registry uses independent `KKON_SCHEMA_REGISTRY_URL`,
+`KKON_SCHEMA_REGISTRY_USERNAME`, and `KKON_SCHEMA_REGISTRY_PASSWORD` overrides.
+Set the relevant URL to run without a config file or interactive setup:
 
 ```bash
 KKON_CONNECT_URL=http://connect:8083 kkon connector health-check --output json
@@ -108,6 +112,29 @@ kkon task list -c <name>      # List tasks for a connector
 kkon task get  -c <name>      # Get task status
 kkon task restart -c <name>   # Restart a task
 ```
+
+### Schema Registry commands
+
+Configure the registry with `kkon config set --schema-registry` or set
+`KKON_SCHEMA_REGISTRY_URL`. No Kafka Connect endpoint is required.
+
+```bash
+kkon schema list
+kkon schema versions orders-value
+kkon schema get orders-value --version latest
+kkon schema check orders-value -f order.avsc
+kkon schema publish orders-value -f order.avsc
+kkon schema publish events-value -f event.proto --type protobuf --references refs.json
+```
+
+Schema types are `avro` (default), `json` (JSON Schema), and `protobuf`.
+Subjects name collections of schema versions. Omit a subject or file in a terminal
+to select it interactively. Explicit arguments publish directly without confirmation.
+Checks use the registry's configured compatibility policy, including transitive
+checks, and exit `1` if incompatible or if the subject has no registered versions.
+Publishing may create a subject. Use `--dry-run` to preview without registering.
+
+See [schema commands](./docs/commands.md#schema) for references and JSON output.
 
 ### Config commands
 

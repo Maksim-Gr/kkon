@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Go installed (if building from source)
-- Access to a Kafka Connect cluster (its REST API URL)
+- Access to a Kafka Connect REST API or Confluent Schema Registry endpoint
 
 ## Build from source
 
@@ -28,6 +28,17 @@ go build -o kkon .
 ```
 
 If no configuration exists, `kkon` will prompt you automatically on the next run.
+
+For Schema Registry alone, configure its independent endpoint and credentials:
+
+```bash
+./kkon config set --schema-registry
+./kkon schema list
+```
+
+Schema commands do not need a Kafka Connect endpoint. In scripts, set
+`KKON_SCHEMA_REGISTRY_URL` and optional `KKON_SCHEMA_REGISTRY_USERNAME` /
+`KKON_SCHEMA_REGISTRY_PASSWORD` instead of using the wizard.
 
 ## Quick verification
 

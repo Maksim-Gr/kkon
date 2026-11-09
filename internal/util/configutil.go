@@ -113,10 +113,12 @@ func LoadConfig() (RestAPIConfig, error) {
 
 // Environment variables that override config file values.
 const (
-	EnvConnectURL        = "KKON_CONNECT_URL"
-	EnvConnectUsername   = "KKON_CONNECT_USERNAME"
-	EnvConnectPassword   = "KKON_CONNECT_PASSWORD" //nolint:gosec // env var name, not a credential
-	EnvSchemaRegistryURL = "KKON_SCHEMA_REGISTRY_URL"
+	EnvConnectURL             = "KKON_CONNECT_URL"
+	EnvConnectUsername        = "KKON_CONNECT_USERNAME"
+	EnvConnectPassword        = "KKON_CONNECT_PASSWORD" //nolint:gosec // env var name, not a credential
+	EnvSchemaRegistryURL      = "KKON_SCHEMA_REGISTRY_URL"
+	EnvSchemaRegistryUsername = "KKON_SCHEMA_REGISTRY_USERNAME"
+	EnvSchemaRegistryPassword = "KKON_SCHEMA_REGISTRY_PASSWORD" //nolint:gosec // env var name, not a credential
 )
 
 // ResolveConfig returns the config file values overridden by any non-empty
@@ -139,13 +141,19 @@ func ResolveConfig() (RestAPIConfig, error) {
 	if v := os.Getenv(EnvSchemaRegistryURL); v != "" {
 		cfg.SchemaRegistry.URL = withDefaultScheme(v)
 	}
+	if v := os.Getenv(EnvSchemaRegistryUsername); v != "" {
+		cfg.SchemaRegistry.Username = v
+	}
+	if v := os.Getenv(EnvSchemaRegistryPassword); v != "" {
+		cfg.SchemaRegistry.Password = v
+	}
 	return cfg, nil
 }
 
 // EnvOverrides returns the names of the KKON_* environment variables that are set.
 func EnvOverrides() []string {
 	var set []string
-	for _, name := range []string{EnvConnectURL, EnvConnectUsername, EnvConnectPassword, EnvSchemaRegistryURL} {
+	for _, name := range []string{EnvConnectURL, EnvConnectUsername, EnvConnectPassword, EnvSchemaRegistryURL, EnvSchemaRegistryUsername, EnvSchemaRegistryPassword} {
 		if os.Getenv(name) != "" {
 			set = append(set, name)
 		}
