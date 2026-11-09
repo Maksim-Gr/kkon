@@ -13,7 +13,9 @@ type KafkaConnectConfig struct {
 	Password string `yaml:"password"`
 }
 
-// SchemaRegistryConfig holds the Confluent Schema Registry URL.
+// SchemaRegistryConfig holds the Confluent Schema Registry connection settings.
 type SchemaRegistryConfig struct {
-	URL string `yaml:"url"`
+	URL      string `yaml:"url"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }

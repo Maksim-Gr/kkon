@@ -46,6 +46,7 @@ func WaitForKafkaConnectStartUp(t *testing.T, baseURL string, timeout time.Durat
 type KafkaConnectTestFixture struct {
 	Container testcontainers.Container
 	URL       string
+	Network   string
 }
 
 // KafkaConnectFixture starts a full Kafka + Kafka Connect stack and returns a test fixture.
@@ -157,6 +158,7 @@ func KafkaConnectFixture(t *testing.T) *KafkaConnectTestFixture {
 	return &KafkaConnectTestFixture{ // Return pointer
 		Container: connectC,
 		URL:       connectURL,
+		Network:   nw.Name,
 	}
 }
 

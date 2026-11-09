@@ -9,6 +9,7 @@ import (
 
 	"github.com/Maksim-Gr/kkon/cmd/config"
 	"github.com/Maksim-Gr/kkon/cmd/connector"
+	"github.com/Maksim-Gr/kkon/cmd/schema"
 	"github.com/Maksim-Gr/kkon/cmd/task"
 
 	"github.com/fatih/color"
@@ -27,11 +28,12 @@ var OutputFormat string
 // RootCmd represents the base command when called without any subcommands.
 var RootCmd = &cobra.Command{
 	Use:   "kkon",
-	Short: "Manage Kafka Connect connectors from the command line",
-	Long: `kkon is a CLI for working with Kafka Connect.
+	Short: "Manage Kafka Connect connectors and Schema Registry schemas",
+	Long: `kkon is a CLI for working with Kafka Connect and Confluent Schema Registry.
 
 Create, update, and operate connectors and their tasks, back up and restore
-connector configs, and manage the Kafka Connect connection settings.
+connector configs, browse and publish schemas, check schema compatibility,
+and manage independent connection settings for Connect and Schema Registry.
 
 Most commands are interactive: run them without arguments to pick connectors
 from a prompt, or pass names and flags for scripting. On first use, kkon walks
@@ -107,4 +109,5 @@ func init() {
 	RootCmd.AddCommand(task.Cmd)
 	RootCmd.AddCommand(config.Cmd)
 	RootCmd.AddCommand(connector.Cmd)
+	RootCmd.AddCommand(schema.NewCommand())
 }

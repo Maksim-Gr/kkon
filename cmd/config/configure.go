@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/Maksim-Gr/kkon/internal/connector"
@@ -17,17 +18,26 @@ import (
 // ConfigureCmd represents the configure command.
 var ConfigureCmd = &cobra.Command{
 	Use:   "set",
-	Short: "Configure the Kafka Connect connection",
+	Short: "Configure Kafka Connect or Schema Registry",
 	Long: `Interactively set the Kafka Connect REST API URL and optional basic-auth
-credentials, then optionally test the connection. Runs automatically the
-first time kkon needs a connection.`,
+credentials, then optionally configure Schema Registry. Use --schema-registry
+to configure only the registry URL and credentials, without Kafka Connect.
+Runs automatically the first time a command needs its connection.`,
 	Example: `  # Run the configuration wizard
   kkon config set
+
+  # Configure Schema Registry independently
+  kkon config set --schema-registry
 
   # Preview without saving the config
   kkon config set --dry-run`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		dryRun := util.IsDryRun(cmd)
+		// First-use Connect setup also calls this handler with the invoking command,
+		// which does not carry config set's local flags.
+		if flag := cmd.Flags().Lookup("schema-registry"); flag != nil && flag.Value.String() == "true" {
+			return ConfigureSchemaRegistry(dryRun)
+		}
 
 		if dryRun {
 			color.Cyan("Dry run mode")
@@ -198,6 +208,16 @@ func configureSchemaRegistry(dryRun bool) error {
 	if !configureSR {
 		return nil
 	}
+	return ConfigureSchemaRegistry(dryRun)
+}
+
+// ConfigureSchemaRegistry configures only Schema Registry, preserving Connect settings.
+func ConfigureSchemaRegistry(dryRun bool) error {
+	cfg, err := util.LoadConfig()
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+	currentURL := cfg.SchemaRegistry.URL
 
 	var inputURL string
 	urlPrompt := &survey.Input{
@@ -224,13 +244,35 @@ func configureSchemaRegistry(dryRun bool) error {
 		inputURL = "http://" + inputURL
 	}
 
+	var username string
+	if err := survey.AskOne(&survey.Input{
+		Message: "Schema Registry username / API key (leave empty for no auth):",
+		Default: cfg.SchemaRegistry.Username,
+	}, &username); err != nil {
+		if util.IsSurveyInterrupt(err) {
+			return util.ErrCanceled
+		}
+		return fmt.Errorf("failed to read username: %w", err)
+	}
+	password := cfg.SchemaRegistry.Password
+	if username == "" {
+		password = ""
+	} else if username != cfg.SchemaRegistry.Username || password == "" {
+		if err := survey.AskOne(&survey.Password{Message: "Schema Registry password / API secret:"}, &password); err != nil {
+			if util.IsSurveyInterrupt(err) {
+				return util.ErrCanceled
+			}
+			return fmt.Errorf("failed to read password: %w", err)
+		}
+	}
+
 	if dryRun {
 		color.Cyan("Dry run mode — config will not be saved.")
 		color.Cyan("Schema Registry URL: %s", inputURL)
 		return nil
 	}
 
-	cfg.SchemaRegistry = util.SchemaRegistryConfig{URL: inputURL}
+	cfg.SchemaRegistry = util.SchemaRegistryConfig{URL: inputURL, Username: username, Password: password}
 
 	configPath, err := util.GetConfigPath()
 	if err != nil {
@@ -242,4 +284,8 @@ func configureSchemaRegistry(dryRun bool) error {
 
 	color.Green("Schema Registry URL: %s", inputURL)
 	return nil
+}
+
+func init() {
+	ConfigureCmd.Flags().Bool("schema-registry", false, "Configure only Schema Registry")
 }

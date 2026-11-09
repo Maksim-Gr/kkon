@@ -27,6 +27,9 @@ overridden by KKON_* environment variables). The password is masked.`,
 		if cfg.KafkaConnect.Password != "" {
 			cfg.KafkaConnect.Password = "********"
 		}
+		if cfg.SchemaRegistry.Password != "" {
+			cfg.SchemaRegistry.Password = "********"
+		}
 
 		if configPath, err := util.GetConfigPath(); err == nil {
 			color.Cyan("Config file: %s\n", configPath)

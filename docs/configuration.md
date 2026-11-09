@@ -1,6 +1,8 @@
 # Configuration
 
-`kkon` needs to know how to reach your Kafka Connect REST API and (optionally) basic auth credentials.
+`kkon` needs the endpoint and optional basic-auth credentials for the service used
+by a command. Schema commands require only Schema Registry; connector and task
+commands require only Kafka Connect.
 
 ## Where configuration lives
 
@@ -12,6 +14,7 @@ You can create or update it via the interactive command:
 
 ```bash
 ./kkon config set
+./kkon config set --schema-registry # Configure only Schema Registry
 ```
 
 ## Config format
@@ -25,15 +28,23 @@ kafkaConnect:
   password: ""
 schemaRegistry:
   url: http://localhost:8081
+  username: ""
+  password: ""
 ```
 
 Notes:
 - `kafkaConnect.username`/`password` are optional. Leave them empty for no auth.
 - If you enter a URL without a scheme, `kkon` assumes `http://`.
-- The `schemaRegistry` section is optional — `kkon config set` only prompts
-  for it if you opt in. It's used to prefill the Schema Registry URL when
+- The `schemaRegistry` section is optional for connector operations. Configure it
+  independently with `kkon config set --schema-registry`, or opt in during the
+  regular wizard. Its URL also prefills the converter URL when
   `kkon connector create` asks whether to use Avro/Protobuf/JSON Schema
   converters.
+- Registry credentials are independent of Connect credentials. For Confluent Cloud,
+  use the Schema Registry API key as username and API secret as password. These
+  credentials authenticate schema commands; they are not copied into connector configs.
+- HTTPS uses standard certificate verification. OAuth and custom client certificates
+  are not supported by schema commands in this release.
 
 ## Environment variables
 
@@ -46,9 +57,13 @@ Environment variables override the matching config file values, which makes
 | `KKON_CONNECT_USERNAME` | `kafkaConnect.username` |
 | `KKON_CONNECT_PASSWORD` | `kafkaConnect.password` |
 | `KKON_SCHEMA_REGISTRY_URL` | `schemaRegistry.url` |
+| `KKON_SCHEMA_REGISTRY_USERNAME` | `schemaRegistry.username` |
+| `KKON_SCHEMA_REGISTRY_PASSWORD` | `schemaRegistry.password` |
 
 Empty variables are ignored. When `KKON_CONNECT_URL` is set, no config file is
-needed and the first-run setup is skipped. URLs without a scheme get `http://`.
+needed for connector commands and the first-run setup is skipped. Likewise,
+`KKON_SCHEMA_REGISTRY_URL` is sufficient for schema commands. URLs without a
+scheme get `http://`.
 
 ```bash
 KKON_CONNECT_URL=http://connect:8083 kkon connector health-check --output json
@@ -65,6 +80,7 @@ written to it.
 
 This prints the effective configuration, including any environment variable
 overrides (listed on an `Overridden by env:` line).
+Both Connect and Schema Registry passwords are masked.
 
 ## Dry run
 

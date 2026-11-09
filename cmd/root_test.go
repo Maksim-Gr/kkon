@@ -9,9 +9,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Maksim-Gr/kkon/cmd/connector"
@@ -151,6 +153,78 @@ func TestExecute_MissingURLWithoutTerminalFails(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no Kafka Connect URL configured")
 	assert.Contains(t, err.Error(), util.EnvConnectURL)
+}
+
+func TestExecute_SchemaUsesIndependentCredentials(t *testing.T) {
+	setTestHome(t)
+	t.Setenv(util.EnvConnectURL, "")
+	t.Setenv(util.EnvConnectUsername, "connect-user")
+	t.Setenv(util.EnvConnectPassword, "connect-password")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		assert.True(t, ok)
+		assert.Equal(t, "registry-key", user)
+		assert.Equal(t, "registry-secret", pass)
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer server.Close()
+	t.Setenv(util.EnvSchemaRegistryURL, server.URL)
+	t.Setenv(util.EnvSchemaRegistryUsername, "registry-key")
+	t.Setenv(util.EnvSchemaRegistryPassword, "registry-secret")
+	var out strings.Builder
+	RootCmd.SetOut(&out)
+	t.Cleanup(func() { RootCmd.SetOut(nil) })
+	resetFlags(t)
+	require.NoError(t, execute("schema", "list", "--output", "json"))
+	assert.JSONEq(t, `[]`, out.String())
+	configOutput := captureStdout(t, func() { require.NoError(t, execute("config", "show")) })
+	assert.NotContains(t, configOutput, "registry-secret")
+	assert.NotContains(t, configOutput, "connect-password")
+	assert.Contains(t, configOutput, "********")
+}
+
+func TestSchemaProcessExit(t *testing.T) {
+	if os.Getenv("KKON_TEST_SCHEMA_EXIT") == "1" {
+		RootCmd.SetArgs([]string{"schema", "check", "orders", "-f", os.Getenv("KKON_TEST_SCHEMA_FILE"), "--output", "json"})
+		Execute(context.Background())
+		os.Exit(0)
+	}
+	setTestHome(t)
+	t.Setenv(util.EnvConnectURL, "")
+	var compatible atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			_, _ = w.Write([]byte(`[1]`))
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"is_compatible": compatible.Load(), "messages": []string{}})
+	}))
+	defer server.Close()
+	t.Setenv(util.EnvSchemaRegistryURL, server.URL)
+	file := filepath.Join(t.TempDir(), "schema.avsc")
+	require.NoError(t, os.WriteFile(file, []byte(`"string"`), 0o600))
+	for _, success := range []bool{true, false} {
+		compatible.Store(success)
+		process := exec.Command(os.Args[0], "-test.run=^TestSchemaProcessExit$") //nolint:gosec // Run only this test's subprocess helper.
+		process.Env = append(os.Environ(), "KKON_TEST_SCHEMA_EXIT=1", "KKON_TEST_SCHEMA_FILE="+file)
+		var stderr strings.Builder
+		process.Stderr = &stderr
+		out, err := process.Output()
+		if success {
+			require.NoError(t, err, stderr.String())
+			assert.Empty(t, stderr.String())
+		} else {
+			var exit *exec.ExitError
+			require.ErrorAs(t, err, &exit)
+			assert.Equal(t, 1, exit.ExitCode())
+			assert.Contains(t, stderr.String(), "incompatible")
+		}
+		var result struct {
+			Compatible bool `json:"is_compatible"`
+		}
+		require.NoError(t, json.Unmarshal(out, &result), "stdout must contain only JSON")
+		assert.Equal(t, success, result.Compatible)
+	}
 }
 
 func captureStdout(t *testing.T, fn func()) string {
